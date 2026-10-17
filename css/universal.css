@@ -1,0 +1,589 @@
+/* ============================================================
+   universal.css — Reserve-a-Lab Design System
+   Contains: variables, reset, typography, utilities,
+             buttons, inputs, modals, toasts, notification sidebar
+   ============================================================ */
+
+/* ─── 1. CSS VARIABLES ─────────────────────────────────────── */
+:root {
+    /* Colors */
+    --color-primary:        #0B1B62;
+    --color-primary-mid:    #2B55C4;
+    --color-secondary:      #4F73D9;
+    --color-accent:         #0036af;
+
+    --color-bg:             #EBF0FA;
+    --color-surface:        #FFFFFF;
+
+    --color-text-primary:   #0B1B62;
+    --color-text-secondary: #707070;
+    --color-border:         #E2E8F0;
+
+    /* Header gradient (unchanged from original) */
+    --header-gradient:      linear-gradient(to right, #0e0054, #0036af, #0e0054);
+
+    /* Status colors */
+    --color-success:        #28a745;
+    --color-danger:         #dc3545;
+    --color-warning:        #ffc107;
+    --color-info:           #17a2b8;
+    --color-secondary-grey: #6c757d;
+
+    /* Typography */
+    --font-family:          'Inter', 'Raleway', system-ui, sans-serif;
+
+    /* Spacing */
+    --space-xs:  4px;
+    --space-sm:  8px;
+    --space-md:  16px;
+    --space-lg:  24px;
+    --space-xl:  32px;
+
+    /* Radius */
+    --radius-card:   16px;
+    --radius-input:  12px;
+    --radius-btn:    20px;
+    --radius-badge:  50%;
+
+    /* Shadows */
+    --shadow-card:   0 4px 20px rgba(0, 0, 0, 0.05);
+    --shadow-hover:  0 8px 20px rgba(43, 85, 196, 0.2);
+    --shadow-modal:  0 10px 40px rgba(0, 0, 0, 0.2);
+
+    /* Transitions */
+    --transition-base:  all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast:  all 0.2s ease;
+}
+
+/* ─── 2. RESET & BASE ───────────────────────────────────────── */
+/* UNCHANGED: original * + html/body/body grid rules */
+* {
+    font-family: var(--font-family);
+    box-sizing: border-box;
+}
+
+html, body {
+    min-height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: radial-gradient(#c0c0c0, #FFFFFF, #c0c0c0);
+    color: var(--color-text-primary);
+}
+
+.main-wrapper {
+    flex: 1 0 auto;
+    min-height: 88vh;
+    overflow-x: hidden;
+}
+
+/* ─── 3. UTILITIES ──────────────────────────────────────────── */
+/* ADDED: lightweight utility classes for internal use */
+.d-flex         { display: flex; }
+.align-center   { align-items: center; }
+.justify-between{ justify-content: space-between; }
+.gap-sm         { gap: var(--space-sm); }
+.gap-md         { gap: var(--space-md); }
+.text-white     { color: #ffffff; }
+.fw-bold        { font-weight: 700; }
+.w-100          { width: 100%; }
+
+/* ─── 4. SHARED: BACKGROUND GRADIENT ───────────────────────── */
+/* UNCHANGED from original — used by .header */
+.background-gradient {
+    background: var(--header-gradient);
+}
+
+/* ─── 5. LIQUID GLASS BUTTON SYSTEM ────────────────────────── */
+/* REFACTORED: shared base extracted; variants use it */
+
+/* Base shared by all liquid buttons */
+.btn-liquid,
+.btn-liquid-white,
+.btn-liquid-success,
+.btn-liquid-danger,
+.btn-liquid-info,
+.btn-liquid-warning,
+.btn-liquid-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 18px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: var(--radius-btn);
+    font-family: var(--font-family);
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    transition: var(--transition-base);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid;
+    cursor: pointer;
+}
+
+/* Blue variant (light background) */
+.btn-liquid {
+    color: var(--color-primary-mid);
+    background: linear-gradient(135deg, rgba(43, 85, 196, 0.05), rgba(43, 85, 196, 0.15));
+    border-color: rgba(43, 85, 196, 0.2);
+    box-shadow: 0 4px 12px rgba(43, 85, 196, 0.1);
+    overflow: hidden;
+}
+.btn-liquid:hover {
+    background: linear-gradient(135deg, rgba(43, 85, 196, 0.1), rgba(43, 85, 196, 0.25));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    color: #1a3a8f;
+    text-decoration: none;
+    border-color: rgba(43, 85, 196, 0.3);
+}
+.btn-liquid:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(43, 85, 196, 0.1);
+}
+
+/* White variant (dark/header background) */
+.btn-liquid-white {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.2));
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: visible; /* needed for notification badge */
+}
+.btn-liquid-white:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.3));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    color: #ffffff;
+    text-decoration: none;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+.btn-liquid-white:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Success (Green) */
+.btn-liquid-success {
+    color: var(--color-success);
+    background: linear-gradient(135deg, rgba(40,167,69,0.05), rgba(40,167,69,0.15));
+    border-color: rgba(40,167,69,0.2);
+    box-shadow: 0 4px 12px rgba(40,167,69,0.1);
+}
+.btn-liquid-success:hover {
+    background: linear-gradient(135deg, rgba(40,167,69,0.1), rgba(40,167,69,0.25));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(40,167,69,0.2);
+    color: #1e7e34;
+    text-decoration: none;
+    border-color: rgba(40,167,69,0.3);
+}
+.btn-liquid-success:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(40,167,69,0.1); }
+
+/* Danger (Red) */
+.btn-liquid-danger {
+    color: var(--color-danger);
+    background: linear-gradient(135deg, rgba(220,53,69,0.05), rgba(220,53,69,0.15));
+    border-color: rgba(220,53,69,0.2);
+    box-shadow: 0 4px 12px rgba(220,53,69,0.1);
+}
+.btn-liquid-danger:hover {
+    background: linear-gradient(135deg, rgba(220,53,69,0.1), rgba(220,53,69,0.25));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(220,53,69,0.2);
+    color: #bd2130;
+    text-decoration: none;
+    border-color: rgba(220,53,69,0.3);
+}
+.btn-liquid-danger:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(220,53,69,0.1); }
+
+/* Info (Cyan) */
+.btn-liquid-info {
+    color: var(--color-info);
+    background: linear-gradient(135deg, rgba(23,162,184,0.05), rgba(23,162,184,0.15));
+    border-color: rgba(23,162,184,0.2);
+    box-shadow: 0 4px 12px rgba(23,162,184,0.1);
+}
+.btn-liquid-info:hover {
+    background: linear-gradient(135deg, rgba(23,162,184,0.1), rgba(23,162,184,0.25));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(23,162,184,0.2);
+    color: #117a8b;
+    text-decoration: none;
+    border-color: rgba(23,162,184,0.3);
+}
+.btn-liquid-info:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(23,162,184,0.1); }
+
+/* Warning (Yellow) */
+.btn-liquid-warning {
+    color: #856404;
+    background: linear-gradient(135deg, rgba(255,193,7,0.05), rgba(255,193,7,0.15));
+    border-color: rgba(255,193,7,0.2);
+    box-shadow: 0 4px 12px rgba(255,193,7,0.1);
+}
+.btn-liquid-warning:hover {
+    background: linear-gradient(135deg, rgba(255,193,7,0.1), rgba(255,193,7,0.25));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255,193,7,0.2);
+    color: #533f03;
+    text-decoration: none;
+    border-color: rgba(255,193,7,0.3);
+}
+.btn-liquid-warning:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(255,193,7,0.1); }
+
+/* Secondary (Grey) */
+.btn-liquid-secondary {
+    color: var(--color-secondary-grey);
+    background: linear-gradient(135deg, rgba(108,117,125,0.05), rgba(108,117,125,0.15));
+    border-color: rgba(108,117,125,0.2);
+    box-shadow: 0 4px 12px rgba(108,117,125,0.1);
+}
+.btn-liquid-secondary:hover {
+    background: linear-gradient(135deg, rgba(108,117,125,0.1), rgba(108,117,125,0.25));
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(108,117,125,0.2);
+    color: #5a6268;
+    text-decoration: none;
+    border-color: rgba(108,117,125,0.3);
+}
+.btn-liquid-secondary:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(108,117,125,0.1); }
+
+/* ─── 6. LIQUID INPUT ───────────────────────────────────────── */
+/* UNCHANGED behavior; refactored to use variables */
+.liquid-input {
+    background: linear-gradient(135deg, rgba(43,85,196,0.05), rgba(43,85,196,0.15)) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(43,85,196,0.2) !important;
+    border-radius: var(--radius-input) !important;
+    color: var(--color-primary-mid) !important;
+    box-shadow: 0 4px 12px rgba(43,85,196,0.1);
+    transition: var(--transition-base);
+    font-weight: 600;
+}
+.liquid-input:focus {
+    box-shadow: 0 8px 20px rgba(43,85,196,0.2);
+    border-color: rgba(43,85,196,0.4) !important;
+    outline: none;
+}
+select.liquid-input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232B55C4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 1rem center !important;
+    background-size: 1em !important;
+    padding-right: 2.5rem !important;
+}
+
+/* ─── 7. MODAL ──────────────────────────────────────────────── */
+/* UNCHANGED: liquid glass modal */
+.modal-content {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: var(--shadow-modal);
+    border-radius: var(--radius-card);
+}
+.modal-header { border-bottom: 1px solid rgba(0,0,0,0.08); }
+.modal-footer { border-top:    1px solid rgba(0,0,0,0.08); }
+
+/* ─── 8. NOTIFICATION BADGE ─────────────────────────────────── */
+/* UNCHANGED: JS reads #notif-badge; display toggled by JS */
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--color-danger);
+    color: #ffffff;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border: 1px solid #ffffff;
+    display: none; /* toggled by JS */
+    z-index: 10;
+    animation: fadeIn 0.3s ease;
+}
+
+/* ─── 9. TOAST NOTIFICATIONS ────────────────────────────────── */
+/* UNCHANGED: JS calls showToast() */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.toast-notification {
+    min-width: 300px;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-left: 5px solid var(--color-primary-mid);
+    border-radius: var(--space-sm);
+    padding: 15px 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideInRight 0.3s ease forwards;
+    transition: var(--transition-fast);
+    font-size: 14px;
+    color: #333;
+}
+.toast-notification.success { border-left-color: var(--color-success); }
+.toast-notification.error   { border-left-color: var(--color-danger); }
+.toast-notification.warning { border-left-color: var(--color-warning); }
+.toast-notification.info    { border-left-color: var(--color-info); }
+.toast-notification.hide    { animation: slideOutRight 0.3s ease forwards; }
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 18px;
+    cursor: pointer;
+    margin-left: 10px;
+    padding: 0;
+    line-height: 1;
+}
+.toast-close:hover { color: #333; }
+
+/* ─── 10. NOTIFICATION SIDEBAR ──────────────────────────────── */
+/* UNCHANGED: JS uses .open, #ns-content, .notification-sidebar, #ns-overlay */
+.notification-sidebar {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 350px;
+    height: 100vh;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+    z-index: 10000;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid rgba(255,255,255,0.4);
+}
+.notification-sidebar.open { right: 0; }
+
+.ns-header {
+    padding: 20px;
+    background: rgba(255,255,255,0.4);
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.ns-title {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--color-primary);
+    margin: 0;
+}
+.ns-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #666;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    padding: 0;
+    line-height: 1;
+}
+.ns-close:hover { color: var(--color-primary); }
+
+.ns-content { flex: 1; overflow-y: auto; padding: 15px; }
+
+.ns-item {
+    padding: 15px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.5);
+    margin-bottom: 10px;
+    transition: var(--transition-fast);
+    position: relative;
+    animation: slideInRight 0.3s ease forwards;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+.ns-item:hover {
+    background: rgba(255,255,255,0.85);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    border-color: rgba(255,255,255,0.8);
+}
+.ns-item-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.ns-item-body { font-size: 14px; color: #333; line-height: 1.4; }
+
+.ns-item.success { border-left: 4px solid var(--color-success); }
+.ns-item.error   { border-left: 4px solid var(--color-danger); }
+.ns-item.warning { border-left: 4px solid var(--color-warning); }
+.ns-item.info    { border-left: 4px solid var(--color-info); }
+
+/* Flagged requests (requested less than 3 days before lab use) */
+.ns-item.flagged {
+    border-left: 4px solid var(--color-danger);
+    background: rgba(220, 53, 69, 0.06);
+    border-color: rgba(220, 53, 69, 0.25);
+}
+.request-flag {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--color-danger);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.ns-clear-btn {
+    margin: 20px;
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    color: #666;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    background: linear-gradient(135deg, rgba(255,255,255,0.5), rgba(255,255,255,0.2));
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.4);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    transition: var(--transition-fast);
+}
+.ns-clear-btn:hover {
+    background: linear-gradient(135deg, rgba(220,53,69,0.1), rgba(220,53,69,0.2));
+    color: var(--color-danger);
+    border-color: rgba(220,53,69,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(220,53,69,0.15);
+}
+.ns-mark-read-btn {
+    font-size: 12px;
+    color: var(--color-primary-mid);
+    cursor: pointer;
+    text-decoration: underline;
+    margin-left: auto;
+}
+
+.ns-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.2);
+    z-index: 9999;
+    display: none;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.ns-overlay.show { display: block; opacity: 1; }
+
+.ns-filters {
+    padding: 10px 15px;
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    -webkit-overflow-scrolling: touch;
+}
+.ns-filters::-webkit-scrollbar { display: none; }
+
+.ns-filter {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius-btn);
+    background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1));
+    backdrop-filter: blur(5px);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-fast);
+    color: #666;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.4);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.ns-filter:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+    transform: translateY(-1px);
+}
+.ns-filter.active {
+    background: linear-gradient(135deg, rgba(43,85,196,0.1), rgba(43,85,196,0.2));
+    color: var(--color-primary-mid);
+    border-color: rgba(43,85,196,0.2);
+    box-shadow: 0 4px 10px rgba(43,85,196,0.15);
+}
+
+/* ─── 11. POPOVER LINKS ─────────────────────────────────────── */
+/* UNCHANGED: generated by PHP in header */
+.popover-link {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    color: #333;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    border-radius: var(--space-sm);
+    font-size: 14px;
+    font-weight: 500;
+}
+.popover-link:hover {
+    background-color: rgba(43,85,196,0.08);
+    text-decoration: none;
+    color: var(--color-primary-mid);
+}
+.popover-link i { font-size: 16px; margin-right: 10px; }
+.popover-link.text-danger:hover {
+    color: var(--color-danger);
+    background-color: rgba(220,53,69,0.1);
+}
+
+/* ─── 12. KEYFRAMES ─────────────────────────────────────────── */
+/* UNCHANGED */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slideOutRight {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(100%); opacity: 0; }
+}
+
+/* ─── 13. RESPONSIVE: notification sidebar ──────────────────── */
+@media (max-width: 480px) {
+    .notification-sidebar { width: 100%; right: -100%; }
+}

@@ -1,0 +1,246 @@
+/* ============================================================
+   header.css — Reserve-a-Lab Header & Navigation
+   Depends on: universal.css (variables)
+   Contains: header layout, nav, responsive breakpoints,
+             header-specific animations
+   ============================================================ */
+
+/* ─── 1. TOP HEADER BAR ─────────────────────────────────────── */
+/* IMPROVED: tighter padding, consistent alignment via gap */
+.header {
+    padding: 14px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* ─── 2. BANNER (logo + school name) ───────────────────────── */
+/* UNCHANGED: #banner ID used by responsive CSS below */
+#banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #ffffff;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* UNCHANGED: inline style on img uses float — kept as-is;
+   gap above handles spacing without breaking markup */
+.logo {
+    height: 60px;
+    flex-shrink: 0;
+    /* REMOVED float: used flex on #banner instead;
+       float: left on img retained from original inline style,
+       no conflict since parent is now flex */
+}
+
+/* School name text block — targets the inline-styled div */
+#banner > div[style*="line-height"] {
+    line-height: 1.25;
+}
+#banner > div[style*="line-height"] > div {
+    font-size: 14px;
+    letter-spacing: 0.01em;
+}
+#banner > div[style*="line-height"] > div:nth-child(2),
+#banner > div[style*="line-height"] > div:nth-child(3) {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* ─── 3. SYSTEM NAME ────────────────────────────────────────── */
+/* IMPROVED: inherits display from Bootstrap d-none d-md-block;
+   enhanced letter-spacing and tracking */
+.system-name {
+    flex: 1;
+    text-align: center;
+}
+.system-name span {
+    display: block;
+    color: #ffffff;
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    line-height: 1;
+}
+
+/* ─── 4. NAV ICONS (bell + profile) ────────────────────────── */
+/* IMPROVED: larger hit targets, consistent spacing */
+.nav-icons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* IMPROVED: icon buttons — bigger hit area, cleaner circle */
+.nav-icons button {
+    font-size: 12px;
+    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    /* btn-liquid-white provides bg/border/transition */
+}
+
+.nav-icons button i {
+    font-size: 22px;
+    color: #ffffff;
+    pointer-events: none; /* prevents accidental JS issues */
+}
+
+/* ─── 5. MAIN NAV BAR ───────────────────────────────────────── */
+/* IMPROVED: refined padding, subtle bottom separator */
+.main-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 32px 18px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* ─── 6. NAV LEFT (calendar button) ────────────────────────── */
+.nav-left {
+    margin-left: 0;
+    flex-shrink: 0;
+}
+
+/* ─── 7. NAV LIST ───────────────────────────────────────────── */
+/* IMPROVED: aligned to design system colors */
+.nav-list {
+    list-style: none;
+    display: flex;
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+}
+
+/* IMPROVED: primary color links, sharper active/hover state */
+.nav-link {
+    text-decoration: none;
+    color: var(--color-text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    padding-bottom: 4px;
+    transition: var(--transition-fast);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+}
+.nav-link:hover {
+    color: var(--color-secondary);
+    border-bottom-color: var(--color-secondary);
+    text-decoration: none;
+}
+.nav-link.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 700;
+}
+
+/* ─── 8. USERNAME (utility, used outside header) ───────────── */
+/* UNCHANGED behavior */
+.username {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 10px 35px 25px;
+    box-sizing: border-box;
+}
+
+/* ─── 9. RESPONSIVE — MEDIUM (≤ 992px) ─────────────────────── */
+@media (max-width: 992px) {
+    /* UNCHANGED: hides school text block on medium screens */
+    #banner div[style*="line-height"] {
+        display: none !important;
+    }
+
+    .system-name {
+        display: block !important;
+        text-align: left;
+    }
+
+    .header {
+        padding: 12px 24px;
+        gap: var(--space-sm);
+    }
+
+    .logo { height: 52px; }
+
+    .nav-icons { gap: 8px; }
+    .nav-icons button { width: 42px; height: 42px; }
+    .nav-icons button i { font-size: 20px; }
+
+    .system-name span { font-size: 2rem; }
+}
+
+/* ─── 10. RESPONSIVE — SMALL (≤ 768px) ─────────────────────── */
+@media (max-width: 768px) {
+    #banner div[style*="line-height"] { display: none !important; }
+
+    .header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 18px;
+    }
+
+    #banner {
+        gap: var(--space-sm);
+    }
+
+    .logo { height: 44px; }
+
+    .system-name {
+        display: block !important;
+        text-align: left;
+    }
+    .system-name span { font-size: 1.7rem; }
+
+    .nav-icons {
+        padding-right: 0;
+        gap: 8px;
+    }
+    .nav-icons button { width: 38px; height: 38px; }
+    .nav-icons button i { font-size: 18px; }
+
+    .main-nav {
+        padding: 8px 18px 14px;
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+    }
+
+    .nav-list { gap: 20px; }
+    .nav-link  { font-size: 14px; }
+}
+
+/* ─── 11. RESPONSIVE — EXTRA SMALL (≤ 480px) ───────────────── */
+@media (max-width: 480px) {
+    .header { padding: 8px 14px; }
+
+    .system-name span { font-size: 1.4rem; letter-spacing: 0.04em; }
+
+    .logo { height: 38px; }
+
+    .nav-icons button { width: 34px; height: 34px; }
+    .nav-icons button i { font-size: 16px; }
+
+    .nav-list { gap: 14px; }
+    .nav-link  { font-size: 13px; }
+}
