@@ -583,7 +583,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
 
                     <div class="card-header-band">
                         <p class="system-label">Guidance Office</p>
-                        <h1>Admin Access</h1>
+                        <h1>Welcome</h1>
                     </div>
 
                     <div class="card-body">
@@ -601,6 +601,33 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
 
                         <hr class="divider" />
 
+                        <p class="section-label">Quick Actions</p>
+                        <ul class="action-list">
+                            <li>
+                                <a class="action-link" href="referral/index.php">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                        <line x1="16" y1="13" x2="8" y2="13" />
+                                        <line x1="16" y1="17" x2="8" y2="17" />
+                                    </svg>
+                                    <div>
+                                        <strong>Student Referral Form</strong>
+                                        <span>Refer a student to the Guidance Office. No login required.</span>
+                                    </div>
+                                </a>
+                            </li>
+                        </ul>
+
+                        <hr class="divider" />
+
+                        <button type="button" class="btn btn-secondary admin-toggle" id="admin-toggle"
+                            aria-expanded="false" aria-controls="admin-login">
+                            Login as Admin
+                        </button>
+
+                        <div id="admin-login" hidden>
                         <div id="alert-area" role="alert" aria-live="polite"></div>
 
                         <form id="login-form" novalidate>
@@ -659,6 +686,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
                             </button>
 
                         </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -667,7 +695,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
                 <div class="visual-panel-img"></div>
                 <div class="visual-overlay">
                     <h2>Guidance Records Hub</h2>
-                    <p>Sign in to manage referral submissions and access guidance office functions across the
+                    <p>Submit a student referral, or sign in as an admin to manage referral submissions across the
                         Ilocos Region Campus.</p>
                 </div>
             </div>
@@ -700,6 +728,19 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
     </div>
 
     <script>
+        (function () {
+            var toggle = document.getElementById('admin-toggle');
+            var panel = document.getElementById('admin-login');
+            toggle.addEventListener('click', function () {
+                var open = panel.hidden;
+                panel.hidden = !open;
+                toggle.setAttribute('aria-expanded', open);
+                if (open) document.getElementById('username').focus();
+            });
+            /* Sent here to sign in (expired session / protected page): show the form. */
+            if (/[?&]redirect=/.test(location.search)) toggle.click();
+        })();
+
         const $ = id => document.getElementById(id);
 
         /* ── Modal Automation ── */
