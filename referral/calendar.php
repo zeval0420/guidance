@@ -278,7 +278,7 @@ if (isset($_GET['feed'])) {
             </div>
             <div class="cal-actions">
                 <a href="hub.php" class="btn-liquid"><i class="bi bi-grid"></i> Hub</a>
-                <a href="../referral/dashboard.php" class="btn-liquid"><i class="bi bi-table"></i> Dashboard</a>
+                <a href="dashboard.php" class="btn-liquid"><i class="bi bi-table"></i> Dashboard</a>
             </div>
         </div>
 
@@ -400,7 +400,7 @@ if (isset($_GET['feed'])) {
                     + '<span class="tag ' + esc(e.status) + '">' + esc(e.status) + '</span>'
                     + (e.concerns ? '<p><strong>Concern:</strong> ' + esc(e.concerns) + '</p>' : '')
                     + '<p>' + esc(e.summary) + '</p>'
-                    + '<p><a href="../referral/dashboard.php?status=All#ref-' + e.id + '">View in dashboard &rarr;</a></p>'
+                    + '<p><a href="dashboard.php?status=All#ref-' + e.id + '">View in dashboard &rarr;</a></p>'
                     + '</div>';
             }).join('');
         }

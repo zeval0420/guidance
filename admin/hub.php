@@ -109,6 +109,33 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
             line-height: 1.45;
         }
 
+        .hub-card .card-links {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+            margin-top: auto;
+        }
+
+        .hub-card .card-links a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-primary-mid);
+            background: rgba(43, 85, 196, 0.07);
+            text-decoration: none;
+            transition: var(--transition-base);
+        }
+
+        .hub-card .card-links a:hover {
+            background: rgba(43, 85, 196, 0.16);
+            color: var(--color-primary);
+        }
+
         .hub-card.disabled {
             cursor: default;
             opacity: 0.6;
@@ -139,23 +166,16 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
         </div>
 
         <div class="hub-grid">
-            <a href="../referral/index.php" class="hub-card">
-                <span class="card-ico"><i class="bi bi-file-earmark-text"></i></span>
-                <h3>Referral Form</h3>
-                <p>Fill out and print the PSHS referral form, or submit it to the records database.</p>
-            </a>
-
-            <a href="../referral/dashboard.php" class="hub-card">
-                <span class="card-ico"><i class="bi bi-table"></i></span>
-                <h3>Referral Dashboard</h3>
-                <p>Review submitted referral forms and approve or reject the pending submissions.</p>
-            </a>
-
-            <a href="calendar.php" class="hub-card">
-                <span class="card-ico"><i class="bi bi-calendar3"></i></span>
-                <h3>Referral Calendar</h3>
-                <p>See every submitted referral and scheduled follow-up on one central calendar.</p>
-            </a>
+            <div class="hub-card">
+                <span class="card-ico"><i class="bi bi-journal-text"></i></span>
+                <h3>Referral System</h3>
+                <p>Submit referrals, review and approve them, and track follow-ups on the calendar.</p>
+                <div class="card-links">
+                    <a href="../referral/index.php"><i class="bi bi-file-earmark-text"></i> Referral Form</a>
+                    <a href="../referral/dashboard.php"><i class="bi bi-table"></i> Dashboard</a>
+                    <a href="../referral/calendar.php"><i class="bi bi-calendar3"></i> Calendar</a>
+                </div>
+            </div>
 
             <div class="hub-card disabled">
                 <span class="card-ico"><i class="bi bi-journal-plus"></i></span>
