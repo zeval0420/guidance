@@ -1,24 +1,15 @@
 <?php
 /**
- * Referral email notifications (guidance-only).
- *
- * Reuses the main reserve-a-lab email stack:
- *   - ../../helperFiles/variableDeclarations.php  → SMTP creds + $enable_email_notifications
- *   - ../../helperFiles/scilab_email.php          → scilab_send_status_email() + scilab_resolve_lab_personnel_emails()
- *
- * Both files resolve their own paths, so they work from anywhere under /reserve-a-lab.
+ * Email helpers for the guidance referral module.
+ * SMTP creds / $enable_email_notifications come from the sibling scilab
+ * folder; PHPMailer and the send functions are bundled in guidance/.
  */
-
-/* Deployed at reserve-a-lab/fil/guidance; a standalone htdocs/guidance checkout uses the sibling reserve-a-lab. */
-$guidanceMainHelpers = is_file(__DIR__ . '/../../../helperFiles/scilab_email.php')
-    ? __DIR__ . '/../../../helperFiles'
-    : __DIR__ . '/../../reserve-a-lab/helperFiles';
-require_once $guidanceMainHelpers . '/variableDeclarations.php';
-require_once $guidanceMainHelpers . '/scilab_email.php';
+require_once __DIR__ . '/../../scilab/helperFiles/variableDeclarations.php';
+require_once __DIR__ . '/../helperFiles/mail.php';
 
 /**
  * Recipients: every active account with guidance-admin clearance
- * (same positions the hub login accepts, and the same query reserve-a-lab
+ * (same positions the hub login accepts, and the same query scilab
  * uses for its lab personnel).
  */
 function guidance_admin_emails($conn)
@@ -40,7 +31,7 @@ function guidance_send_submission_notification($conn, $data)
     $subject = 'PSHS Referral #' . $id . ' - New Submission';
 
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-    $baseURL = $protocol . $_SERVER['HTTP_HOST'] . '/reserve-a-lab/fil/guidance';
+    $baseURL = $protocol . $_SERVER['HTTP_HOST'] . '/guidance';
     $dashLink = $baseURL . '/referral/dashboard.php?status=Pending';
 
     $body = '<p>A new guidance referral form has been submitted and is awaiting review.</p>'

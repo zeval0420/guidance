@@ -2,16 +2,16 @@
 /* Guidance admin authentication endpoint (login + forgot password). */
 require('helperFiles/db_connection.php');
 include('helperFiles/session_handler.php');
-include('../../helperFiles/variableDeclarations.php');
+include(__DIR__ . '/../scilab/helperFiles/variableDeclarations.php');
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require '../../PHPMailer/src/Exception.php';
-require '../../PHPMailer/src/PHPMailer.php';
-require '../../PHPMailer/src/SMTP.php';
+require __DIR__ . '/PHPMailer/src/Exception.php';
+require __DIR__ . '/PHPMailer/src/PHPMailer.php';
+require __DIR__ . '/PHPMailer/src/SMTP.php';
 
-/* Admin positions allowed into the guidance hub (same check reserve-a-lab uses). */
+/* Admin positions allowed into the guidance hub (same check scilab uses). */
 $accepted_admin_roles = ['Sci. Res. Assist.', 'Sci. Research Specialist I'];
 
 if (isset($_POST['action']) && $_POST['action'] === 'loginUser') {
@@ -103,7 +103,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'forgotPassword') {
 
         $timestamp = time();
         $token = md5($user['email'] . $user['password'] . 'SciLabSecretSalt2025' . $timestamp);
-        $link = 'http://' . $_SERVER['HTTP_HOST'] . '/reserve-a-lab/fil/guidance/reset_password.php?email=' . urlencode($user['email']) . '&token=' . $token . '&ts=' . $timestamp;
+        $link = 'http://' . $_SERVER['HTTP_HOST'] . '/guidance/reset_password.php?email=' . urlencode($user['email']) . '&token=' . $token . '&ts=' . $timestamp;
 
         $mail->Body = 'Hello ' . $user['firstname'] . ',<br><br>You requested a password reset. Click the link below to proceed:<br><a href="' . $link . '">' . $link . '</a><br><br>If you did not request this, please ignore this email.';
 
