@@ -506,6 +506,85 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
             text-decoration: underline;
         }
 
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .action-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .action-btn {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.1rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 12px;
+            text-decoration: none;
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(11, 27, 98, 0.18);
+            transition: transform 0.2s var(--transition), box-shadow 0.2s var(--transition);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(11, 27, 98, 0.26);
+            color: #fff;
+        }
+
+        .action-btn:focus-visible {
+            outline: 3px solid var(--secondary-glow);
+            outline-offset: 2px;
+        }
+
+        .action-ico {
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .action-text { flex: 1; min-width: 0; }
+        .action-text strong { display: block; font-size: 0.95rem; font-weight: 600; }
+        .action-text span { display: block; font-size: 0.78rem; color: rgba(255, 255, 255, 0.72); margin-top: 2px; line-height: 1.35; }
+
+        .action-arrow { flex-shrink: 0; opacity: 0.7; transition: transform 0.2s var(--transition), opacity 0.2s; }
+        .action-btn:hover .action-arrow { transform: translateX(3px); opacity: 1; }
+
+        .admin-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            width: 100%;
+            font-size: 0.85rem;
+        }
+
+        /* Actions view: keep the card from collapsing to a short strip. */
+        .card.is-actions { min-height: 560px; display: flex; flex-direction: column; }
+        .card.is-actions .card-body { flex: 1; display: flex; flex-direction: column; }
+        .card.is-actions #view-actions { flex: 1; display: flex; flex-direction: column; }
+        .card.is-actions .admin-spacer { flex: 1; min-height: 1rem; }
+
+        .back-link { margin-bottom: 1rem; }
+        .back-link .btn-ghost { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; }
+
+        [hidden] { display: none !important; }
+
         /* ─── MODAL ──────────────────────────────────────────── */
         .modal-overlay {
             position: fixed;
@@ -579,14 +658,25 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
         <div class="split-container">
 
             <div class="card-pane">
-                <div class="card" role="main">
+                <div class="card is-actions" id="main-card" role="main">
 
                     <div class="card-header-band">
                         <p class="system-label">Guidance Office</p>
-                        <h1>Welcome</h1>
+                        <h1 id="card-title">Welcome</h1>
                     </div>
 
                     <div class="card-body">
+
+                        <div class="back-link" id="back-link" hidden>
+                            <button type="button" class="btn-ghost" id="back-btn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <line x1="19" y1="12" x2="5" y2="12" />
+                                    <polyline points="12 19 5 12 12 5" />
+                                </svg>
+                                Go back
+                            </button>
+                        </div>
 
                         <div class="institution" aria-label="Institution Profile">
                             <div class="logo-circle" aria-hidden="true">
@@ -601,33 +691,43 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
 
                         <hr class="divider" />
 
-                        <p class="section-label">Quick Actions</p>
-                        <ul class="action-list">
-                            <li>
-                                <a class="action-link" href="referral/index.php">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                        <line x1="16" y1="13" x2="8" y2="13" />
-                                        <line x1="16" y1="17" x2="8" y2="17" />
-                                    </svg>
-                                    <div>
-                                        <strong>Student Referral Form</strong>
-                                        <span>Refer a student to the Guidance Office. No login required.</span>
-                                    </div>
-                                </a>
-                            </li>
-                        </ul>
+                        <div id="view-actions">
+                            <p class="section-label">Quick Actions</p>
+                            <ul class="action-list">
+                                <li>
+                                    <a class="action-btn" href="referral/index.php">
+                                        <span class="action-ico">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                <polyline points="14 2 14 8 20 8" />
+                                                <line x1="16" y1="13" x2="8" y2="13" />
+                                                <line x1="16" y1="17" x2="8" y2="17" />
+                                            </svg>
+                                        </span>
+                                        <span class="action-text">
+                                            <strong>Student Referral Form</strong>
+                                            <span>Refer a student to the Guidance Office. No login required.</span>
+                                        </span>
+                                        <svg class="action-arrow" width="18" height="18" viewBox="0 0 24 24"
+                                            fill="none" stroke="currentColor" stroke-width="2.2"
+                                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <polyline points="9 18 15 12 9 6" />
+                                        </svg>
+                                    </a>
+                                </li>
+                            </ul>
 
-                        <hr class="divider" />
+                            <div class="admin-spacer"></div>
+                            <hr class="divider" />
 
-                        <button type="button" class="btn btn-secondary admin-toggle" id="admin-toggle"
-                            aria-expanded="false" aria-controls="admin-login">
-                            Login as Admin
-                        </button>
+                            <button type="button" class="btn btn-secondary admin-toggle" id="admin-toggle">
+                                Login as Admin
+                            </button>
+                        </div>
 
-                        <div id="admin-login" hidden>
+                        <div id="view-login" hidden>
                         <div id="alert-area" role="alert" aria-live="polite"></div>
 
                         <form id="login-form" novalidate>
@@ -729,16 +829,30 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
 
     <script>
         (function () {
-            var toggle = document.getElementById('admin-toggle');
-            var panel = document.getElementById('admin-login');
-            toggle.addEventListener('click', function () {
-                var open = panel.hidden;
-                panel.hidden = !open;
-                toggle.setAttribute('aria-expanded', open);
-                if (open) document.getElementById('username').focus();
-            });
+            var card = document.getElementById('main-card');
+            var actions = document.getElementById('view-actions');
+            var login = document.getElementById('view-login');
+            var back = document.getElementById('back-link');
+
+            /* Swap views and replay the card entrance so the whole card refreshes. */
+            function showView(name) {
+                var isLogin = name === 'login';
+                actions.hidden = isLogin;
+                back.hidden = !isLogin;
+                login.hidden = !isLogin;
+                card.classList.toggle('is-actions', !isLogin);
+                document.getElementById('card-title').textContent = isLogin ? 'Admin Access' : 'Welcome';
+                card.style.animation = 'none';
+                void card.offsetWidth;
+                card.style.animation = '';
+                if (isLogin) document.getElementById('username').focus();
+            }
+
+            document.getElementById('admin-toggle').addEventListener('click', function () { showView('login'); });
+            document.getElementById('back-btn').addEventListener('click', function () { showView('actions'); });
+
             /* Sent here to sign in (expired session / protected page): show the form. */
-            if (/[?&]redirect=/.test(location.search)) toggle.click();
+            if (/[?&]redirect=/.test(location.search)) showView('login');
         })();
 
         const $ = id => document.getElementById(id);
