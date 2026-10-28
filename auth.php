@@ -95,7 +95,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'forgotPassword') {
         $mail->SMTPSecure = $email_smtp_secure;
         $mail->Port       = $email_smtp_port;
 
-        $mail->setFrom($email_sender, $email_sender_name);
+        $mail->setFrom($email_sender, 'Guidance');
         $mail->addAddress($user['email']);
 
         $mail->isHTML(true);

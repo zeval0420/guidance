@@ -1,17 +1,33 @@
 <?php
 session_start();
+date_default_timezone_set('Asia/Manila');
 $asset_base = '../';
 require('../helperFiles/db_connection.php');
 require_once('emailHelper.php');
+
+const DEFAULT_CAMPUS = 'Ilocos Region Campus';
+
+/* Grade levels and their sections, for the dropdowns: [grade => [section, ...]] */
+$sectionsByGrade = [];
+$secRes = $conn->query("SELECT grade, section FROM section ORDER BY CAST(grade AS UNSIGNED), section");
+if ($secRes) {
+    while ($s = $secRes->fetch_assoc()) {
+        $sectionsByGrade[$s['grade']][] = $s['section'];
+    }
+}
 
 /* PRG: confirmations arrive via ?saved=1 / ?saved=0 */
 $saved = isset($_GET['saved']) ? (int)$_GET['saved'] : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
     /* Sanitize basic fields */
-    $campus        = trim($_POST['campus'] ?? '');
+    $campus        = DEFAULT_CAMPUS;
     $student       = trim($_POST['student'] ?? '');
-    $gradeSection  = trim($_POST['grade'] ?? '');
+    $gradeLevel    = trim($_POST['grade_level'] ?? '');
+    $sectionName   = trim($_POST['section'] ?? '');
+    /* Only accept a grade/section pair that exists in the section table. */
+    $gradeSection  = (isset($sectionsByGrade[$gradeLevel]) && in_array($sectionName, $sectionsByGrade[$gradeLevel], true))
+        ? $gradeLevel . ' - ' . $sectionName : '';
     $dateReferred  = trim($_POST['date'] ?? '');
     if ($dateReferred === '') { $dateReferred = null; }
     $description   = trim($_POST['description'] ?? '');
@@ -244,8 +260,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
             margin-bottom: 18px;
         }
 
+        .referral-app .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px 20px;
+            margin-bottom: 18px;
+        }
+
         .referral-app .field { margin-bottom: 18px; }
-        .referral-app .grid-2 .field { margin-bottom: 0; }
+        .referral-app .grid-2 .field,
+        .referral-app .grid-3 .field { margin-bottom: 0; }
+
+        .referral-app input[readonly] { color: var(--color-text-secondary); cursor: default; }
 
         .referral-app .field > label,
         .referral-app .group-label {
@@ -261,6 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
 
         .referral-app input[type="text"],
         .referral-app input[type="date"],
+        .referral-app select,
         .referral-app textarea {
             width: 100%;
             border: 1.5px solid var(--color-border);
@@ -281,6 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
         }
 
         .referral-app input:focus,
+        .referral-app select:focus,
         .referral-app textarea:focus {
             background: #fff;
             border-color: var(--color-secondary);
@@ -521,6 +549,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
             .referral-app .hero h1 { font-size: 24px; }
             .referral-app .panel { padding: 20px 16px; }
             .referral-app .grid-2,
+            .referral-app .grid-3,
             .referral-app .behavior-list { grid-template-columns: 1fr; }
             .referral-app .form-actions { position: static; }
             .referral-app .btn-primary, .referral-app .btn-secondary { flex: 1; }
@@ -578,7 +607,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
                 <div class="grid-2">
                     <div class="field">
                         <label for="campus">Campus <span class="req">*</span></label>
-                        <input type="text" id="campus" name="campus" placeholder="e.g. Ilocos Region Campus" required>
+                        <input type="text" id="campus" name="campus" value="<?= htmlspecialchars(DEFAULT_CAMPUS) ?>" readonly required>
                     </div>
                     <div class="field">
                         <label for="student">Name of Student <span class="req">*</span></label>
@@ -586,14 +615,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
                     </div>
                 </div>
 
-                <div class="grid-2">
+                <div class="grid-3">
                     <div class="field">
-                        <label for="grade">Grade &amp; Section <span class="req">*</span></label>
-                        <input type="text" id="grade" name="grade" placeholder="e.g. 10 - Sigma" required>
+                        <label for="grade_level">Grade Level <span class="req">*</span></label>
+                        <select id="grade_level" name="grade_level" required>
+                            <option value="">Select grade</option>
+                            <?php foreach (array_keys($sectionsByGrade) as $g): ?>
+                                <option value="<?= htmlspecialchars($g) ?>">Grade <?= htmlspecialchars($g) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="section">Section <span class="req">*</span></label>
+                        <select id="section" name="section" required disabled>
+                            <option value="">Select grade first</option>
+                        </select>
                     </div>
                     <div class="field">
                         <label for="date">Date Referred <span class="req">*</span></label>
-                        <input type="date" id="date" name="date" required>
+                        <input type="date" id="date" name="date" value="<?= date('Y-m-d') ?>" required>
                     </div>
                 </div>
 
@@ -697,6 +737,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
             r.addEventListener('change', syncFollowup);
         });
 
+        var sectionsByGrade = <?= json_encode($sectionsByGrade) ?>;
+        var gradeSelect = document.getElementById('grade_level');
+        var sectionSelect = document.getElementById('section');
+
+        function syncSections() {
+            var list = sectionsByGrade[gradeSelect.value] || [];
+            sectionSelect.innerHTML = '';
+            var first = document.createElement('option');
+            first.value = '';
+            first.textContent = list.length ? 'Select section' : 'Select grade first';
+            sectionSelect.appendChild(first);
+            list.forEach(function (name) {
+                var o = document.createElement('option');
+                o.value = name;
+                o.textContent = name;
+                sectionSelect.appendChild(o);
+            });
+            sectionSelect.disabled = !list.length;
+        }
+
+        gradeSelect.addEventListener('change', syncSections);
+
         function validateForm() {
             var concerns = document.querySelectorAll('input[name="concern_academic"], input[name="concern_behavior"], input[name="concern_personal"]');
             var concernSelected = Array.from(concerns).some(function(cb) { return cb.checked; });
@@ -716,6 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
         function clearForm() {
             if (!confirm("Clear all entered information?")) return;
             document.getElementById("referralForm").reset();
+            syncSections();
             syncFollowup();
         }
     </script>
@@ -724,6 +787,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
         <script>
             showToast('Referral record saved successfully.', 'success');
             document.getElementById("referralForm").reset();
+            syncSections();
             syncFollowup();
         </script>
     <?php elseif ($saved === 0): ?>

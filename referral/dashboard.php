@@ -59,26 +59,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $statusFilter = (isset($_GET['status']) && in_array($_GET['status'], ['All', 'Pending', 'Approved', 'Rejected'], true))
     ? $_GET['status'] : 'All';
 
-$query = "SELECT id, campus, student, grade_section, date_referred,
-                 description, intervention, requires_followup, other_behavior, referrer_email,
-                 behavior_depressed, behavior_hopelessness, behavior_crying,
-                 behavior_suicide, behavior_mood, behavior_emotional,
-                 behavior_withdrawal, behavior_excessive_activity, behavior_interaction,
-                 behavior_disruptive, behavior_appearance, behavior_academic_decline,
-                 concern_academic, concern_behavior, concern_personal,
-                 status, reviewed_by, reviewed_at, created_at
-            FROM guidance_referral_form";
-if ($statusFilter !== 'All') {
-    $query .= " WHERE status = '" . mysqli_real_escape_string($conn, $statusFilter) . "'";
-}
-$query .= " ORDER BY created_at DESC";
-$result = $conn->query($query);
+/* Rows load in pages so the table stays fast no matter how many referrals exist. */
+const REFERRALS_PAGE_SIZE = 25;
 
-$records = [];
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $records[] = $row;
+/* Returns [rows, hasMore] for one page of referrals, newest first. */
+function fetchReferralPage($conn, $statusFilter, $offset, $limit) {
+    $sql = "SELECT id, campus, student, grade_section, date_referred,
+                   description, intervention, requires_followup, other_behavior, referrer_email,
+                   behavior_depressed, behavior_hopelessness, behavior_crying,
+                   behavior_suicide, behavior_mood, behavior_emotional,
+                   behavior_withdrawal, behavior_excessive_activity, behavior_interaction,
+                   behavior_disruptive, behavior_appearance, behavior_academic_decline,
+                   concern_academic, concern_behavior, concern_personal,
+                   status, reviewed_by, reviewed_at, created_at
+              FROM guidance_referral_form";
+    if ($statusFilter !== 'All') {
+        $sql .= " WHERE status = ?";
     }
+    $sql .= " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
+
+    $stmt = $conn->prepare($sql);
+    $fetch = $limit + 1; /* one extra row tells us whether another page exists */
+    if ($statusFilter !== 'All') {
+        $stmt->bind_param('sii', $statusFilter, $fetch, $offset);
+    } else {
+        $stmt->bind_param('ii', $fetch, $offset);
+    }
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    $hasMore = count($rows) > $limit;
+    return [array_slice($rows, 0, $limit), $hasMore];
 }
 
 $behaviorLabels = [
@@ -103,6 +115,86 @@ function statusBadgeClass($status) {
         default    => 'badge-pending',
     };
 }
+
+/* One <tr> for the referrals table; used for the first page and for scroll-loaded pages. */
+function renderReferralRow($row, $behaviorLabels, $statusFilter) {
+    $detail = [
+        'id'              => $row['id'],
+        'campus'          => $row['campus'],
+        'student'         => $row['student'],
+        'grade_section'   => $row['grade_section'],
+        'date_referred'   => $row['date_referred'],
+        'concern'         => array_values(array_filter([
+            $row['concern_academic'] ? 'Academic' : '',
+            $row['concern_behavior'] ? 'Behavior' : '',
+            $row['concern_personal'] ? 'Personal/Social' : '',
+        ])),
+        'description'     => $row['description'],
+        'intervention'    => $row['intervention'],
+        'requires_followup' => $row['requires_followup'],
+        'referrer_email'  => $row['referrer_email'],
+        'other_behavior'  => $row['other_behavior'],
+        'behaviors'       => array_values(array_filter(array_map(
+            fn($col) => isset($row[$col]) && $row[$col] ? $behaviorLabels[$col] : null,
+            array_keys($behaviorLabels)
+        ))),
+        'status'          => $row['status'],
+        'reviewed_by'     => $row['reviewed_by'],
+        'reviewed_at'     => $row['reviewed_at'],
+        'created_at'      => $row['created_at'],
+    ];
+    ob_start();
+    ?>
+    <tr id="ref-<?php echo (int)$row['id']; ?>">
+        <td><?php echo $row['id']; ?></td>
+        <td class="muted"><?php echo htmlspecialchars($row['date_referred'] ?: '-'); ?></td>
+        <td class="student"><?php echo htmlspecialchars($row['student']); ?></td>
+        <td class="muted"><?php echo htmlspecialchars($row['grade_section']); ?></td>
+        <td class="muted"><?php echo htmlspecialchars($row['requires_followup'] ?: '-'); ?></td>
+        <td><span class="status-badge <?php echo statusBadgeClass($row['status']); ?>"><?php echo htmlspecialchars($row['status']); ?></span></td>
+        <td class="muted"><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($row['created_at']))); ?></td>
+        <td>
+            <div class="row-actions">
+                <button type="button" class="btn-view" data-detail="<?php echo htmlspecialchars(json_encode($detail), ENT_QUOTES, 'UTF-8'); ?>">
+                    <i class="bi bi-eye"></i> View
+                </button>
+                <?php if ($row['status'] === 'Pending'): ?>
+                    <form method="post" action="dashboard.php" class="d-inline"
+                          onsubmit="return confirm('Approve referral #<?php echo $row['id']; ?>?' );">
+                        <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="status_filter" value="<?php echo $statusFilter; ?>">
+                        <button type="submit" class="btn-liquid">Approve</button>
+                    </form>
+                    <form method="post" action="dashboard.php" class="d-inline"
+                          onsubmit="return confirm('Reject referral #<?php echo $row['id']; ?>?' );">
+                        <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="status_filter" value="<?php echo $statusFilter; ?>">
+                        <button type="submit" class="btn-liquid-danger">Reject</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </td>
+    </tr>
+    <?php
+    return ob_get_clean();
+}
+
+/* ── JSON feed: next page of rows for the scrolling table ── */
+if (isset($_GET['feed'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    $offset = max(0, (int)($_GET['offset'] ?? 0));
+    [$pageRows, $hasMore] = fetchReferralPage($conn, $statusFilter, $offset, REFERRALS_PAGE_SIZE);
+    $html = '';
+    foreach ($pageRows as $r) {
+        $html .= renderReferralRow($r, $behaviorLabels, $statusFilter);
+    }
+    echo json_encode(['html' => $html, 'count' => count($pageRows), 'hasMore' => $hasMore]);
+    exit();
+}
+
+[$records, $hasMore] = fetchReferralPage($conn, $statusFilter, 0, REFERRALS_PAGE_SIZE);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -190,6 +282,19 @@ function statusBadgeClass($status) {
 
         .table-responsive { margin: 0; }
 
+        /* Fixed-height scroll area; more rows load as the bottom is reached. */
+        .table-scroll {
+            max-height: 70vh;
+            overflow: auto;
+        }
+
+        .scroll-status {
+            padding: 12px;
+            text-align: center;
+            font-size: 12.5px;
+            color: var(--color-text-secondary);
+        }
+
         .table-referrals {
             width: 100%;
             margin: 0;
@@ -197,6 +302,9 @@ function statusBadgeClass($status) {
         }
 
         .table-referrals thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
             background: #f4f6fb;
             color: var(--color-text-secondary);
             font-size: 11px;
@@ -353,7 +461,7 @@ function statusBadgeClass($status) {
                     <p>No referral submissions<?php echo $statusFilter !== 'All' ? ' under "' . htmlspecialchars($statusFilter) . '"' : ''; ?>.</p>
                 </div>
             <?php else: ?>
-                <div class="table-responsive">
+                <div class="table-responsive table-scroll" id="tableScroll">
                     <table class="table-referrals">
                         <thead>
                             <tr>
@@ -367,69 +475,11 @@ function statusBadgeClass($status) {
                                 <th></th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php foreach ($records as $row):
-                                $detail = [
-                                    'id'              => $row['id'],
-                                    'campus'          => $row['campus'],
-                                    'student'         => $row['student'],
-                                    'grade_section'   => $row['grade_section'],
-                                    'date_referred'   => $row['date_referred'],
-                                    'concern'         => array_values(array_filter([
-                                        $row['concern_academic'] ? 'Academic' : '',
-                                        $row['concern_behavior'] ? 'Behavior' : '',
-                                        $row['concern_personal'] ? 'Personal/Social' : '',
-                                    ])),
-                                    'description'     => $row['description'],
-                                    'intervention'    => $row['intervention'],
-                                    'requires_followup' => $row['requires_followup'],
-                                    'referrer_email'  => $row['referrer_email'],
-                                    'other_behavior'  => $row['other_behavior'],
-                                    'behaviors'       => array_values(array_filter(array_map(
-                                        fn($col) => isset($row[$col]) && $row[$col] ? $behaviorLabels[$col] : null,
-                                        array_keys($behaviorLabels)
-                                    ))),
-                                    'status'          => $row['status'],
-                                    'reviewed_by'     => $row['reviewed_by'],
-                                    'reviewed_at'     => $row['reviewed_at'],
-                                    'created_at'      => $row['created_at'],
-                                ];
-                                ?>
-                                <tr id="ref-<?php echo (int)$row['id']; ?>">
-                                    <td><?php echo $row['id']; ?></td>
-                                    <td class="muted"><?php echo htmlspecialchars($row['date_referred'] ?: '-'); ?></td>
-                                    <td class="student"><?php echo htmlspecialchars($row['student']); ?></td>
-                                    <td class="muted"><?php echo htmlspecialchars($row['grade_section']); ?></td>
-                                    <td class="muted"><?php echo htmlspecialchars($row['requires_followup'] ?: '-'); ?></td>
-                                    <td><span class="status-badge <?php echo statusBadgeClass($row['status']); ?>"><?php echo htmlspecialchars($row['status']); ?></span></td>
-                                    <td class="muted"><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($row['created_at']))); ?></td>
-                                    <td>
-                                        <div class="row-actions">
-                                            <button type="button" class="btn-view" data-detail="<?php echo htmlspecialchars(json_encode($detail), ENT_QUOTES, 'UTF-8'); ?>">
-                                                <i class="bi bi-eye"></i> View
-                                            </button>
-                                            <?php if ($row['status'] === 'Pending'): ?>
-                                                <form method="post" action="dashboard.php" class="d-inline"
-                                                      onsubmit="return confirm('Approve referral #<?php echo $row['id']; ?>?' );">
-                                                    <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
-                                                    <input type="hidden" name="action" value="approve">
-                                                    <input type="hidden" name="status_filter" value="<?php echo $statusFilter; ?>">
-                                                    <button type="submit" class="btn-liquid">Approve</button>
-                                                </form>
-                                                <form method="post" action="dashboard.php" class="d-inline"
-                                                      onsubmit="return confirm('Reject referral #<?php echo $row['id']; ?>?' );">
-                                                    <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
-                                                    <input type="hidden" name="action" value="reject">
-                                                    <input type="hidden" name="status_filter" value="<?php echo $statusFilter; ?>">
-                                                    <button type="submit" class="btn-liquid-danger">Reject</button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
+                        <tbody id="referralRows">
+                            <?php foreach ($records as $row) echo renderReferralRow($row, $behaviorLabels, $statusFilter); ?>
                         </tbody>
                     </table>
+                    <div class="scroll-status" id="scrollStatus" hidden>Loading more&hellip;</div>
                 </div>
             <?php endif; ?>
         </div>
@@ -470,7 +520,62 @@ function statusBadgeClass($status) {
             return arr.map(function (x) { return '<span class="label label-primary" style="margin-right:6px;">' + esc(x) + '</span>'; }).join('');
         }
 
-        $('.btn-view').on('click', function () {
+        /* ── Infinite scroll: fetch the next page when the bottom of the table nears ── */
+        (function () {
+            var scroller = document.getElementById('tableScroll');
+            if (!scroller) return;
+            var tbody = document.getElementById('referralRows');
+            var status = document.getElementById('scrollStatus');
+            var offset = tbody.children.length;
+            var hasMore = <?php echo $hasMore ? 'true' : 'false'; ?>;
+            var loading = false;
+            var statusFilter = <?php echo json_encode($statusFilter); ?>;
+
+            function loadMore() {
+                if (loading || !hasMore) return Promise.resolve();
+                loading = true;
+                status.hidden = false;
+                return fetch('dashboard.php?feed=1&status=' + encodeURIComponent(statusFilter) + '&offset=' + offset, { credentials: 'same-origin' })
+                    .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
+                    .then(function (data) {
+                        tbody.insertAdjacentHTML('beforeend', data.html);
+                        offset += data.count;
+                        hasMore = data.hasMore;
+                    })
+                    .catch(function () {
+                        hasMore = false;
+                        showToast('Could not load more referrals.', 'error');
+                    })
+                    .then(function () {
+                        loading = false;
+                        status.hidden = true;
+                    });
+            }
+
+            function nearBottom() {
+                return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 200;
+            }
+
+            function fillIfShort() {
+                if (hasMore && nearBottom()) loadMore().then(fillIfShort);
+            }
+
+            scroller.addEventListener('scroll', fillIfShort);
+
+            /* Deep link from the calendar (#ref-ID): keep loading until that row exists. */
+            var target = location.hash;
+            if (/^#ref-\d+$/.test(target)) {
+                (function seek() {
+                    var row = document.querySelector(target);
+                    if (row) { row.scrollIntoView({ block: 'center' }); return; }
+                    if (hasMore) loadMore().then(seek);
+                })();
+            } else {
+                fillIfShort();
+            }
+        })();
+
+        $('#referralRows').on('click', '.btn-view', function () {
             var d = $(this).data('detail');
             $('#detail-title').text('Referral #' + d.id);
             var html = '<div class="detail-sheet">';

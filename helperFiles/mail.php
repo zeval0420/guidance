@@ -43,7 +43,7 @@ function scilab_send_status_email($emails, $subject, $bodyHtml) {
             $mail->SMTPSecure = $email_smtp_secure;
             $mail->Port = $email_smtp_port;
 
-            $mail->setFrom($email_sender, 'PSHS-IRC SciLab');
+            $mail->setFrom($email_sender, 'Guidance');
             $mail->addAddress($email);
 
             $mail->isHTML(true);
