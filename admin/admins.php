@@ -11,7 +11,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 }
 
 /* ── Constants ─────────────────────────────────────────────── */
-$ADMIN_POSITIONS = GUIDANCE_ADMIN_POSITIONS;
+$ADMIN_POSITIONS = guidance_admin_positions($conn);
 $BASE_TYPES      = ['staff', 'faculty'];
 $STATUSES        = ['active', 'inactive'];
 $MIN_PASSWORD    = 8;
@@ -57,6 +57,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action = $_POST['action'] ?? '';
+
+    /* ── Choose which positions count as admins ── */
+    if ($action === 'save_positions') {
+        $selected = array_map('trim', (array)($_POST['positions'] ?? []));
+        $custom   = trim($_POST['new_position'] ?? '');
+
+        /* Only accept positions that exist on an account, are already admin positions, or were typed in. */
+        $known = $ADMIN_POSITIONS;
+        $res = $conn->query("SELECT DISTINCT position FROM accounts WHERE position <> ''");
+        while ($row = $res->fetch_assoc()) $known[] = $row['position'];
+        if ($custom !== '') {
+            if (strlen($custom) > 50) flash_and_redirect('danger', 'Custom position is too long (max 50 characters).');
+            $known[]    = $custom;
+            $selected[] = $custom;
+        }
+        $selected = array_values(array_unique(array_intersect($selected, $known)));
+
+        if (!$selected) {
+            flash_and_redirect('danger', 'At least one position must be an admin position.');
+        }
+
+        /* Don't let an admin remove their own access. */
+        $stmt = $conn->prepare("SELECT position FROM accounts WHERE employeeID = ?");
+        $stmt->bind_param('s', $_SESSION['employeeID']);
+        $stmt->execute();
+        $me = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($me && !in_array($me['position'], $selected, true)) {
+            flash_and_redirect('danger', 'You cannot remove your own position (' . $me['position'] . ') from the admin list.');
+        }
+
+        if (!guidance_save_admin_positions($conn, $selected)) {
+            flash_and_redirect('danger', 'Database error: admin positions could not be saved.');
+        }
+        flash_and_redirect('success', 'Admin positions updated.');
+    }
+
     $employeeID = trim($_POST['employeeID'] ?? '');
     $username   = trim($_POST['username'] ?? '');
     $firstname  = trim($_POST['firstname'] ?? '');
@@ -188,6 +225,15 @@ $stmt->execute();
 $admins = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+/* Every position in use, with how many accounts hold it (for the position picker). */
+$positionCounts = [];
+$res = $conn->query("SELECT position, COUNT(*) AS c FROM accounts WHERE position <> '' GROUP BY position ORDER BY position");
+while ($row = $res->fetch_assoc()) $positionCounts[$row['position']] = (int)$row['c'];
+foreach ($ADMIN_POSITIONS as $p) {
+    if (!isset($positionCounts[$p])) $positionCounts[$p] = 0;
+}
+ksort($positionCounts);
+
 function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 ?>
 <!DOCTYPE html>
@@ -250,6 +296,8 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
         .mgmt-alert { margin-bottom: 18px; }
 
+        .pos-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 14px; }
+        .pos-list .checkbox { margin: 8px 0; font-size: 13px; }
         .modal-title { color: var(--color-primary); font-weight: 700; }
         .modal-body .form-group label { font-weight: 600; font-size: 13px; }
         .modal-body .hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 4px; }
@@ -268,6 +316,9 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             <div class="mgmt-actions">
                 <button type="button" class="btn-liquid-success" id="btnCreate">
                     <i class="bi bi-person-plus"></i>&nbsp; Create Account
+                </button>
+                <button type="button" class="btn-liquid" data-toggle="modal" data-target="#positionsModal">
+                    <i class="bi bi-shield-check"></i>&nbsp; Admin Positions
                 </button>
                 <a href="hub.php" class="btn-liquid"><i class="bi bi-arrow-left"></i>&nbsp; Back to Hub</a>
                 <a href="../logout.php" class="btn-liquid-danger"><i class="bi bi-box-arrow-right"></i>&nbsp; Logout</a>
@@ -426,6 +477,53 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                 <div class="modal-footer">
                     <button type="button" class="btn-liquid-secondary" data-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn-liquid-success" id="fSubmit"><i class="bi bi-check2"></i>&nbsp; Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin positions modal -->
+    <div class="modal fade" id="positionsModal" tabindex="-1" role="dialog" aria-labelledby="positionsModalTitle">
+        <div class="modal-dialog" role="document">
+            <form method="post" action="admins.php" class="modal-content" autocomplete="off">
+                <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
+                <input type="hidden" name="action" value="save_positions">
+
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="positionsModalTitle">Admin Positions</h4>
+                </div>
+
+                <div class="modal-body">
+                    <div class="alert alert-warning" style="font-size:13px;">
+                        Every <strong>active</strong> account holding a checked position can log in to the Guidance Hub
+                        and receives referral notification emails. Unchecking a position removes its accounts from the
+                        admin list and from login access.
+                    </div>
+
+                    <div class="pos-list">
+                        <?php foreach ($positionCounts as $pos => $count): ?>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" name="positions[]" value="<?php echo h($pos); ?>"
+                                        <?php echo in_array($pos, $ADMIN_POSITIONS, true) ? 'checked' : ''; ?>>
+                                    <?php echo h($pos); ?>
+                                    <span class="text-muted">(<?php echo $count; ?> account<?php echo $count === 1 ? '' : 's'; ?>)</span>
+                                </label>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="form-group" style="margin-top:14px;">
+                        <label for="fNewPosition">Add another position</label>
+                        <input type="text" class="form-control" id="fNewPosition" name="new_position" maxlength="50"
+                               placeholder="Type a position not listed above (optional)">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-liquid-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-liquid-success"><i class="bi bi-check2"></i>&nbsp; Save Positions</button>
                 </div>
             </form>
         </div>

@@ -15,7 +15,7 @@ require_once __DIR__ . '/admin_roles.php';
 
 function scilab_resolve_lab_personnel_emails($conn) {
     $emails = [];
-    $positions = GUIDANCE_ADMIN_POSITIONS;
+    $positions = guidance_admin_positions($conn);
     $placeholders = implode(',', array_fill(0, count($positions), '?'));
     $stmt = $conn->prepare("SELECT email FROM accounts WHERE status = 'active' AND position IN ($placeholders)");
     if ($stmt) {

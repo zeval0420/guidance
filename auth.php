@@ -13,7 +13,7 @@ require __DIR__ . '/PHPMailer/src/SMTP.php';
 
 /* Admin positions allowed into the guidance hub. */
 require_once __DIR__ . '/helperFiles/admin_roles.php';
-$accepted_admin_roles = GUIDANCE_ADMIN_POSITIONS;
+$accepted_admin_roles = guidance_admin_positions($conn);
 
 if (isset($_POST['action']) && $_POST['action'] === 'loginUser') {
     $input_identity = trim($_POST['email'] ?? '');
