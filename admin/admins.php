@@ -4,17 +4,18 @@ require('../helperFiles/db_connection.php');
 include('../helperFiles/session_handler.php');
 require_once('../helperFiles/admin_roles.php');
 
-/* Gate: admins only. */
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+/* Gate: admins only (re-checked against the table so revoked admins lose access here immediately). */
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin' || !guidance_is_admin($conn, $_SESSION['employeeID'] ?? '')) {
     header('Location: ../index.php');
     exit();
 }
 
 /* ── Constants ─────────────────────────────────────────────── */
-$ADMIN_POSITIONS = guidance_admin_positions($conn);
-$BASE_TYPES      = ['staff', 'faculty'];
-$STATUSES        = ['active', 'inactive'];
-$MIN_PASSWORD    = 8;
+$BASE_TYPES   = ['staff', 'faculty'];
+$STATUSES     = ['active', 'inactive'];
+$MIN_PASSWORD = 8;
+$myID         = $_SESSION['employeeID'];
+$isSuper      = guidance_is_super_admin($conn, $myID);
 
 /* CSRF token (per session). */
 if (empty($_SESSION['admin_mgmt_csrf'])) {
@@ -58,40 +59,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
-    /* ── Choose which positions count as admins ── */
-    if ($action === 'save_positions') {
-        $selected = array_map('trim', (array)($_POST['positions'] ?? []));
-        $custom   = trim($_POST['new_position'] ?? '');
-
-        /* Only accept positions that exist on an account, are already admin positions, or were typed in. */
-        $known = $ADMIN_POSITIONS;
-        $res = $conn->query("SELECT DISTINCT position FROM accounts WHERE position <> ''");
-        while ($row = $res->fetch_assoc()) $known[] = $row['position'];
-        if ($custom !== '') {
-            if (strlen($custom) > 50) flash_and_redirect('danger', 'Custom position is too long (max 50 characters).');
-            $known[]    = $custom;
-            $selected[] = $custom;
+    /* ── Choose who is an admin (super admin only) ── */
+    if ($action === 'save_admins') {
+        if (!$isSuper) {
+            flash_and_redirect('danger', 'Only the super admin can choose who is an admin.');
         }
-        $selected = array_values(array_unique(array_intersect($selected, $known)));
+        $selected = array_map('strval', (array)($_POST['admins'] ?? []));
 
-        if (!$selected) {
-            flash_and_redirect('danger', 'At least one position must be an admin position.');
-        }
+        /* Only accept IDs that exist in accounts. */
+        $valid = [];
+        $res = $conn->query("SELECT employeeID FROM accounts");
+        while ($row = $res->fetch_assoc()) $valid[$row['employeeID']] = true;
+        $selected = array_values(array_filter($selected, function ($id) use ($valid) { return isset($valid[$id]); }));
 
-        /* Don't let an admin remove their own access. */
-        $stmt = $conn->prepare("SELECT position FROM accounts WHERE employeeID = ?");
-        $stmt->bind_param('s', $_SESSION['employeeID']);
-        $stmt->execute();
-        $me = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        if ($me && !in_array($me['position'], $selected, true)) {
-            flash_and_redirect('danger', 'You cannot remove your own position (' . $me['position'] . ') from the admin list.');
+        if (!guidance_set_admins($conn, $selected, $myID)) {
+            flash_and_redirect('danger', 'Database error: admins could not be updated.');
         }
+        flash_and_redirect('success', 'Admin access updated.');
+    }
 
-        if (!guidance_save_admin_positions($conn, $selected)) {
-            flash_and_redirect('danger', 'Database error: admin positions could not be saved.');
-        }
-        flash_and_redirect('success', 'Admin positions updated.');
+    if (!in_array($action, ['create', 'update'], true)) {
+        flash_and_redirect('danger', 'Unknown action.');
+    }
+    if ($action === 'create' && !$isSuper) {
+        flash_and_redirect('danger', 'Only the super admin can create admin accounts.');
     }
 
     $employeeID = trim($_POST['employeeID'] ?? '');
@@ -108,20 +99,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $errors = [];
 
-    if (!in_array($action, ['create', 'update'], true)) {
-        flash_and_redirect('danger', 'Unknown action.');
-    }
-
     /* Existing row (for update): must exist and be an admin account. */
     $existing = null;
     if ($action === 'update') {
-        $stmt = $conn->prepare("SELECT * FROM accounts WHERE employeeID = ?");
+        $stmt = $conn->prepare(
+            "SELECT a.*, g.is_super FROM accounts a
+               JOIN guidance_admins g ON g.employeeID = a.employeeID
+              WHERE a.employeeID = ?"
+        );
         $stmt->bind_param('s', $employeeID);
         $stmt->execute();
         $existing = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        if (!$existing || !in_array($existing['position'], $ADMIN_POSITIONS, true)) {
+        if (!$existing) {
             flash_and_redirect('danger', 'Admin account not found.');
+        }
+        if ((int)$existing['is_super'] === 1 && !$isSuper) {
+            flash_and_redirect('danger', 'Only the super admin can edit the super admin account.');
         }
     }
 
@@ -131,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($firstname === '' || strlen($firstname) > 100)  $errors[] = 'First name is required (max 100 characters).';
     if (strlen($middlename) > 100)                      $errors[] = 'Middle name is too long (max 100 characters).';
     if ($lastname === '' || strlen($lastname) > 100)    $errors[] = 'Last name is required (max 100 characters).';
-    if (!in_array($position, $ADMIN_POSITIONS, true))   $errors[] = 'Please choose a valid position.';
+    if ($position === '' || strlen($position) > 50)     $errors[] = 'Position is required (max 50 characters).';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 50) $errors[] = 'A valid email is required (max 50 characters).';
 
     $allowedTypes = $BASE_TYPES;
@@ -146,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     /* Don't let an admin lock themselves out. */
-    if ($action === 'update' && $employeeID === ($_SESSION['employeeID'] ?? null) && $status !== 'active') {
+    if ($action === 'update' && $employeeID === $myID && $status !== 'active') {
         $errors[] = 'You cannot deactivate your own account.';
     }
 
@@ -169,6 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($action === 'create') {
                     /* The whole system (auth.php, reset flow) uses MD5 for accounts.password. */
                     $hash = md5($password);
+                    $conn->begin_transaction();
                     $stmt = $conn->prepare(
                         "INSERT INTO accounts (employeeID, username, firstname, middlename, lastname, password, position, email, type, status)
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -176,7 +171,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->bind_param('ssssssssss', $employeeID, $username, $firstname, $middlename, $lastname, $hash, $position, $email, $type, $status);
                     $stmt->execute();
                     $stmt->close();
-                    flash_and_redirect('success', "Account for $firstname $lastname created.");
+                    /* An account created here is an admin account. */
+                    $stmt = $conn->prepare("INSERT INTO guidance_admins (employeeID, added_by) VALUES (?, ?)");
+                    $stmt->bind_param('ss', $employeeID, $myID);
+                    $stmt->execute();
+                    $stmt->close();
+                    $conn->commit();
+                    flash_and_redirect('success', "Admin account for $firstname $lastname created.");
                 } else {
                     if ($password !== '') {
                         $hash = md5($password);
@@ -196,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->close();
 
                     /* Keep the current session in sync when editing yourself. */
-                    if ($employeeID === ($_SESSION['employeeID'] ?? null)) {
+                    if ($employeeID === $myID) {
                         $_SESSION['email']      = $email;
                         $_SESSION['firstname']  = $firstname;
                         $_SESSION['middlename'] = $middlename;
@@ -207,6 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (mysqli_sql_exception $e) {
+            try { $conn->rollback(); } catch (Throwable $e2) {}
             $errors[] = 'Database error: the account could not be saved.';
         }
     }
@@ -215,24 +217,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ── Load current admins ───────────────────────────────────── */
-$placeholders = implode(',', array_fill(0, count($ADMIN_POSITIONS), '?'));
-$stmt = $conn->prepare(
-    "SELECT employeeID, username, firstname, middlename, lastname, password, position, email, type, status
-       FROM accounts WHERE position IN ($placeholders) ORDER BY lastname, firstname"
-);
-$stmt->bind_param(str_repeat('s', count($ADMIN_POSITIONS)), ...$ADMIN_POSITIONS);
-$stmt->execute();
-$admins = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$admins = $conn->query(
+    "SELECT a.employeeID, a.username, a.firstname, a.middlename, a.lastname, a.password,
+            a.position, a.email, a.type, a.status, g.is_super
+       FROM guidance_admins g
+       JOIN accounts a ON a.employeeID = g.employeeID
+      ORDER BY a.lastname, a.firstname"
+)->fetch_all(MYSQLI_ASSOC);
 
-/* Every position in use, with how many accounts hold it (for the position picker). */
-$positionCounts = [];
-$res = $conn->query("SELECT position, COUNT(*) AS c FROM accounts WHERE position <> '' GROUP BY position ORDER BY position");
-while ($row = $res->fetch_assoc()) $positionCounts[$row['position']] = (int)$row['c'];
-foreach ($ADMIN_POSITIONS as $p) {
-    if (!isset($positionCounts[$p])) $positionCounts[$p] = 0;
+/* Super admin only: every account, for the "who is an admin" picker. */
+$allAccounts = [];
+$adminIDs = array_column($admins, 'employeeID');
+if ($isSuper) {
+    $allAccounts = $conn->query(
+        "SELECT employeeID, firstname, lastname, position, email, status FROM accounts ORDER BY lastname, firstname"
+    )->fetch_all(MYSQLI_ASSOC);
 }
-ksort($positionCounts);
+
+/* Existing positions, offered as suggestions in the position field. */
+$positionSuggestions = [];
+$res = $conn->query("SELECT DISTINCT position FROM accounts WHERE position <> '' ORDER BY position");
+while ($row = $res->fetch_assoc()) $positionSuggestions[] = $row['position'];
 
 function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 ?>
@@ -293,11 +298,14 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
         }
         .badge-status.active   { background: rgba(40, 167, 69, 0.12); color: var(--color-success); }
         .badge-status.inactive { background: rgba(108, 117, 125, 0.15); color: var(--color-secondary-grey); }
+        .badge-super { background: rgba(43, 85, 196, 0.14); color: var(--color-primary-mid); margin-left: 6px; }
 
         .mgmt-alert { margin-bottom: 18px; }
 
-        .pos-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 14px; }
-        .pos-list .checkbox { margin: 8px 0; font-size: 13px; }
+        .pick-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 14px; }
+        .pick-list .checkbox { margin: 8px 0; font-size: 13px; }
+        .pick-list .checkbox .sub { display: block; margin-left: 0; color: var(--color-text-secondary); font-size: 12px; }
+
         .modal-title { color: var(--color-primary); font-weight: 700; }
         .modal-body .form-group label { font-weight: 600; font-size: 13px; }
         .modal-body .hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 4px; }
@@ -311,15 +319,20 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
         <div class="mgmt-head">
             <div>
                 <h1>Admin Management</h1>
-                <p>View and edit guidance administrator accounts, or create a new one.</p>
+                <p>
+                    View and edit guidance administrator accounts.
+                    <?php if ($isSuper): ?>As super admin you can also choose who is an admin and create admin accounts.<?php endif; ?>
+                </p>
             </div>
             <div class="mgmt-actions">
-                <button type="button" class="btn-liquid-success" id="btnCreate">
-                    <i class="bi bi-person-plus"></i>&nbsp; Create Account
-                </button>
-                <button type="button" class="btn-liquid" data-toggle="modal" data-target="#positionsModal">
-                    <i class="bi bi-shield-check"></i>&nbsp; Admin Positions
-                </button>
+                <?php if ($isSuper): ?>
+                    <button type="button" class="btn-liquid-success" id="btnCreate">
+                        <i class="bi bi-person-plus"></i>&nbsp; Create Account
+                    </button>
+                    <button type="button" class="btn-liquid" data-toggle="modal" data-target="#adminsModal">
+                        <i class="bi bi-shield-check"></i>&nbsp; Choose Admins
+                    </button>
+                <?php endif; ?>
                 <a href="hub.php" class="btn-liquid"><i class="bi bi-arrow-left"></i>&nbsp; Back to Hub</a>
                 <a href="../logout.php" class="btn-liquid-danger"><i class="bi bi-box-arrow-right"></i>&nbsp; Logout</a>
             </div>
@@ -353,9 +366,13 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                         <tr><td colspan="11" class="text-center text-muted">No admin accounts found.</td></tr>
                     <?php endif; ?>
                     <?php foreach ($admins as $a): ?>
+                        <?php $rowIsSuper = (int)$a['is_super'] === 1; ?>
                         <tr>
                             <td><?php echo h($a['employeeID']); ?></td>
-                            <td><?php echo h($a['username']); ?></td>
+                            <td>
+                                <?php echo h($a['username']); ?>
+                                <?php if ($rowIsSuper): ?><span class="badge-status badge-super">super admin</span><?php endif; ?>
+                            </td>
                             <td><?php echo h($a['firstname']); ?></td>
                             <td><?php echo h($a['middlename']); ?></td>
                             <td><?php echo h($a['lastname']); ?></td>
@@ -365,18 +382,20 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                             <td><?php echo h($a['type']); ?></td>
                             <td><span class="badge-status <?php echo h($a['status']); ?>"><?php echo h($a['status']); ?></span></td>
                             <td>
-                                <button type="button" class="btn-liquid btn-edit"
-                                    data-employeeid="<?php echo h($a['employeeID']); ?>"
-                                    data-username="<?php echo h($a['username']); ?>"
-                                    data-firstname="<?php echo h($a['firstname']); ?>"
-                                    data-middlename="<?php echo h($a['middlename']); ?>"
-                                    data-lastname="<?php echo h($a['lastname']); ?>"
-                                    data-position="<?php echo h($a['position']); ?>"
-                                    data-email="<?php echo h($a['email']); ?>"
-                                    data-type="<?php echo h($a['type']); ?>"
-                                    data-status="<?php echo h($a['status']); ?>">
-                                    <i class="bi bi-pencil"></i>&nbsp; Edit
-                                </button>
+                                <?php if (!$rowIsSuper || $isSuper): ?>
+                                    <button type="button" class="btn-liquid btn-edit"
+                                        data-employeeid="<?php echo h($a['employeeID']); ?>"
+                                        data-username="<?php echo h($a['username']); ?>"
+                                        data-firstname="<?php echo h($a['firstname']); ?>"
+                                        data-middlename="<?php echo h($a['middlename']); ?>"
+                                        data-lastname="<?php echo h($a['lastname']); ?>"
+                                        data-position="<?php echo h($a['position']); ?>"
+                                        data-email="<?php echo h($a['email']); ?>"
+                                        data-type="<?php echo h($a['type']); ?>"
+                                        data-status="<?php echo h($a['status']); ?>">
+                                        <i class="bi bi-pencil"></i>&nbsp; Edit
+                                    </button>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -435,11 +454,12 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                     <div class="row">
                         <div class="col-sm-6 form-group">
                             <label for="fPosition">Position</label>
-                            <select class="form-control" id="fPosition" name="position" required>
-                                <?php foreach ($ADMIN_POSITIONS as $p): ?>
-                                    <option value="<?php echo h($p); ?>"><?php echo h($p); ?></option>
+                            <input type="text" class="form-control" id="fPosition" name="position" maxlength="50" list="positionList" required>
+                            <datalist id="positionList">
+                                <?php foreach ($positionSuggestions as $p): ?>
+                                    <option value="<?php echo h($p); ?>"></option>
                                 <?php endforeach; ?>
-                            </select>
+                            </datalist>
                         </div>
                         <div class="col-sm-3 form-group">
                             <label for="fType">Type</label>
@@ -482,52 +502,59 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
         </div>
     </div>
 
-    <!-- Admin positions modal -->
-    <div class="modal fade" id="positionsModal" tabindex="-1" role="dialog" aria-labelledby="positionsModalTitle">
+    <?php if ($isSuper): ?>
+    <!-- Choose admins modal (super admin only) -->
+    <div class="modal fade" id="adminsModal" tabindex="-1" role="dialog" aria-labelledby="adminsModalTitle">
         <div class="modal-dialog" role="document">
             <form method="post" action="admins.php" class="modal-content" autocomplete="off">
                 <input type="hidden" name="csrf" value="<?php echo h($csrf); ?>">
-                <input type="hidden" name="action" value="save_positions">
+                <input type="hidden" name="action" value="save_admins">
 
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title" id="positionsModalTitle">Admin Positions</h4>
+                    <h4 class="modal-title" id="adminsModalTitle">Choose Admins</h4>
                 </div>
 
                 <div class="modal-body">
                     <div class="alert alert-warning" style="font-size:13px;">
-                        Every <strong>active</strong> account holding a checked position can log in to the Guidance Hub
-                        and receives referral notification emails. Unchecking a position removes its accounts from the
-                        admin list and from login access.
+                        Checked accounts can log in to the Guidance Hub (when active) and receive referral notification
+                        emails. Unchecking an account removes its admin access. The super admin cannot be removed.
                     </div>
 
-                    <div class="pos-list">
-                        <?php foreach ($positionCounts as $pos => $count): ?>
-                            <div class="checkbox">
+                    <input type="text" class="form-control" id="pickFilter" placeholder="Search name, position, or email" style="margin-bottom:10px;">
+
+                    <div class="pick-list">
+                        <?php foreach ($allAccounts as $acc): ?>
+                            <?php
+                                $isAdmin = in_array($acc['employeeID'], $adminIDs, true);
+                                $locked  = false;
+                                foreach ($admins as $ad) {
+                                    if ($ad['employeeID'] === $acc['employeeID'] && (int)$ad['is_super'] === 1) $locked = true;
+                                }
+                                $search = strtolower($acc['firstname'] . ' ' . $acc['lastname'] . ' ' . $acc['position'] . ' ' . $acc['email'] . ' ' . $acc['employeeID']);
+                            ?>
+                            <div class="checkbox pick-item" data-search="<?php echo h($search); ?>">
                                 <label>
-                                    <input type="checkbox" name="positions[]" value="<?php echo h($pos); ?>"
-                                        <?php echo in_array($pos, $ADMIN_POSITIONS, true) ? 'checked' : ''; ?>>
-                                    <?php echo h($pos); ?>
-                                    <span class="text-muted">(<?php echo $count; ?> account<?php echo $count === 1 ? '' : 's'; ?>)</span>
+                                    <input type="checkbox" name="admins[]" value="<?php echo h($acc['employeeID']); ?>"
+                                        <?php echo $isAdmin ? 'checked' : ''; ?> <?php echo $locked ? 'disabled' : ''; ?>>
+                                    <strong><?php echo h($acc['lastname'] . ', ' . $acc['firstname']); ?></strong>
+                                    <?php if ($locked): ?><span class="badge-status badge-super">super admin</span><?php endif; ?>
+                                    <?php if ($acc['status'] !== 'active'): ?><span class="badge-status inactive">inactive</span><?php endif; ?>
+                                    <span class="sub"><?php echo h($acc['position']); ?> &middot; <?php echo h($acc['email']); ?></span>
                                 </label>
                             </div>
                         <?php endforeach; ?>
-                    </div>
-
-                    <div class="form-group" style="margin-top:14px;">
-                        <label for="fNewPosition">Add another position</label>
-                        <input type="text" class="form-control" id="fNewPosition" name="new_position" maxlength="50"
-                               placeholder="Type a position not listed above (optional)">
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn-liquid-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn-liquid-success"><i class="bi bi-check2"></i>&nbsp; Save Positions</button>
+                    <button type="submit" class="btn-liquid-success"><i class="bi bi-check2"></i>&nbsp; Save Admins</button>
                 </div>
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
     <?php include('../helperFiles/footer.php'); ?>
 
@@ -550,7 +577,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             $('#btnCreate').on('click', function () {
                 $modal.find('form')[0].reset();
                 $('#fAction').val('create');
-                $('#accountModalTitle').text('Create Account');
+                $('#accountModalTitle').text('Create Admin Account');
                 $('#fEmployeeID').prop('readonly', false);
                 $('#fEmployeeIDHint').hide();
                 $('#fPasswordLabel').text('Password');
@@ -579,6 +606,14 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
                 $('#fPasswordHint').text('Leave blank to keep the current password.');
                 setRequiredPassword(false);
                 $modal.modal('show');
+            });
+
+            /* Search box in the "Choose Admins" picker. */
+            $('#pickFilter').on('input', function () {
+                var q = this.value.toLowerCase().trim();
+                $('.pick-item').each(function () {
+                    $(this).toggle(q === '' || $(this).data('search').indexOf(q) !== -1);
+                });
             });
         })();
     </script>

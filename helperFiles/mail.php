@@ -15,17 +15,18 @@ require_once __DIR__ . '/admin_roles.php';
 
 function scilab_resolve_lab_personnel_emails($conn) {
     $emails = [];
-    $positions = guidance_admin_positions($conn);
-    $placeholders = implode(',', array_fill(0, count($positions), '?'));
-    $stmt = $conn->prepare("SELECT email FROM accounts WHERE status = 'active' AND position IN ($placeholders)");
-    if ($stmt) {
-        $stmt->bind_param(str_repeat('s', count($positions)), ...$positions);
-        $stmt->execute();
-        $res = $stmt->get_result();
+    try {
+        guidance_ensure_admins_table($conn);
+        $res = $conn->query(
+            "SELECT a.email FROM accounts a
+               JOIN guidance_admins g ON g.employeeID = a.employeeID
+              WHERE a.status = 'active'"
+        );
         while ($row = $res->fetch_assoc()) {
             if (!empty($row['email'])) $emails[] = $row['email'];
         }
-        $stmt->close();
+    } catch (Throwable $e) {
+        /* no recipients on database error */
     }
     return array_unique($emails);
 }

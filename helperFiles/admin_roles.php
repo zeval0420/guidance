@@ -1,75 +1,135 @@
 <?php
 /**
- * Which account positions count as guidance admins.
+ * Guidance admin access.
  *
- * The list is stored in the `guidance_admin_positions` table and managed from
- * admin/admins.php. If the table is missing it is created and seeded with the
- * defaults below; if the database call fails the defaults are used, so the
- * login can never end up with an empty list.
+ * Admins are individual accounts listed in the `guidance_admins` table (not a
+ * position). One "super admin" (is_super = 1) chooses who else is an admin from
+ * admin/admins.php.
  *
  * Used by auth.php (login), helperFiles/mail.php (notification recipients)
  * and admin/admins.php (management page).
  */
-if (!defined('GUIDANCE_ADMIN_POSITIONS')) {
-    define('GUIDANCE_ADMIN_POSITIONS', [
-        'Sci. Res. Assist.',
-        'Sci. Research Specialist I',
-        'G.S.A. I',
-        'Guidance Designate',
-    ]);
+
+/* The account that is made super admin the first time the table is set up. */
+if (!defined('GUIDANCE_SUPER_ADMIN_EMAIL')) {
+    define('GUIDANCE_SUPER_ADMIN_EMAIL', 'pangdasl@irc.pshs.edu.ph');
 }
 
-/** Create the table (and seed the defaults) if it does not exist yet. */
-function guidance_ensure_admin_positions_table($conn)
+/* Positions that were admins before this table existed; granted once on first setup so nobody is locked out. */
+if (!defined('GUIDANCE_LEGACY_ADMIN_POSITIONS')) {
+    define('GUIDANCE_LEGACY_ADMIN_POSITIONS', ['Sci. Res. Assist.', 'Sci. Research Specialist I']);
+}
+
+/** Create the table if needed, seed it on first use, and make sure a super admin exists. */
+function guidance_ensure_admins_table($conn)
 {
+    static $done = false;
+    if ($done) return;
+
     $conn->query(
-        "CREATE TABLE IF NOT EXISTS `guidance_admin_positions` (
-            `position` VARCHAR(50) NOT NULL,
-            PRIMARY KEY (`position`)
-         ) ENGINE=InnoDB DEFAULT CHARSET=latin1"
+        "CREATE TABLE IF NOT EXISTS `guidance_admins` (
+            `employeeID` VARCHAR(20) NOT NULL,
+            `is_super`   TINYINT(1) NOT NULL DEFAULT 0,
+            `added_by`   VARCHAR(20) NULL DEFAULT NULL,
+            `added_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`employeeID`)
+         ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci"
     );
-    $count = $conn->query("SELECT COUNT(*) AS c FROM `guidance_admin_positions`")->fetch_assoc();
-    if ((int)$count['c'] === 0) {
-        $stmt = $conn->prepare("INSERT IGNORE INTO `guidance_admin_positions` (`position`) VALUES (?)");
-        foreach (GUIDANCE_ADMIN_POSITIONS as $p) {
-            $stmt->bind_param('s', $p);
-            $stmt->execute();
-        }
+
+    /* First setup: carry over the previous position-based admins. */
+    $row = $conn->query("SELECT COUNT(*) AS c FROM `guidance_admins`")->fetch_assoc();
+    if ((int)$row['c'] === 0) {
+        $positions = GUIDANCE_LEGACY_ADMIN_POSITIONS;
+        $ph = implode(',', array_fill(0, count($positions), '?'));
+        $stmt = $conn->prepare("INSERT IGNORE INTO `guidance_admins` (`employeeID`) SELECT employeeID FROM accounts WHERE position IN ($ph)");
+        $stmt->bind_param(str_repeat('s', count($positions)), ...$positions);
+        $stmt->execute();
         $stmt->close();
     }
+
+    /* Make sure a super admin exists (re-tried until the account is found). */
+    $has = $conn->query("SELECT 1 FROM `guidance_admins` WHERE `is_super` = 1 LIMIT 1")->num_rows > 0;
+    if (!$has) {
+        $email = GUIDANCE_SUPER_ADMIN_EMAIL;
+        $stmt = $conn->prepare(
+            "INSERT INTO `guidance_admins` (`employeeID`, `is_super`)
+             SELECT employeeID, 1 FROM accounts WHERE email = ? ORDER BY (status = 'active') DESC LIMIT 1
+             ON DUPLICATE KEY UPDATE `is_super` = 1"
+        );
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    $done = true;
 }
 
-/** Positions currently treated as admins (array of strings, never empty). */
-function guidance_admin_positions($conn)
+/** Is this employee a guidance admin? Fails closed on any database error. */
+function guidance_is_admin($conn, $employeeID)
 {
-    static $cache = null;
-    if ($cache !== null) return $cache;
-
     try {
-        guidance_ensure_admin_positions_table($conn);
-        $positions = [];
-        $res = $conn->query("SELECT `position` FROM `guidance_admin_positions` ORDER BY `position`");
-        while ($row = $res->fetch_assoc()) $positions[] = $row['position'];
-        $cache = $positions ?: GUIDANCE_ADMIN_POSITIONS;
+        guidance_ensure_admins_table($conn);
+        $stmt = $conn->prepare("SELECT 1 FROM `guidance_admins` WHERE `employeeID` = ?");
+        $stmt->bind_param('s', $employeeID);
+        $stmt->execute();
+        $ok = $stmt->get_result()->num_rows > 0;
+        $stmt->close();
+        return $ok;
     } catch (Throwable $e) {
-        $cache = GUIDANCE_ADMIN_POSITIONS;
+        return false;
     }
-    return $cache;
 }
 
-/** Replace the stored admin positions. Returns true on success. */
-function guidance_save_admin_positions($conn, array $positions)
+/** Is this employee the super admin (the only one who can choose admins)? */
+function guidance_is_super_admin($conn, $employeeID)
 {
     try {
-        guidance_ensure_admin_positions_table($conn);
-        $conn->begin_transaction();
-        $conn->query("DELETE FROM `guidance_admin_positions`");
-        $stmt = $conn->prepare("INSERT INTO `guidance_admin_positions` (`position`) VALUES (?)");
-        foreach ($positions as $p) {
-            $stmt->bind_param('s', $p);
-            $stmt->execute();
-        }
+        guidance_ensure_admins_table($conn);
+        $stmt = $conn->prepare("SELECT 1 FROM `guidance_admins` WHERE `employeeID` = ? AND `is_super` = 1");
+        $stmt->bind_param('s', $employeeID);
+        $stmt->execute();
+        $ok = $stmt->get_result()->num_rows > 0;
         $stmt->close();
+        return $ok;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Make the admin set exactly $employeeIDs (the super admin is always kept).
+ * Returns true on success.
+ */
+function guidance_set_admins($conn, array $employeeIDs, $byEmployeeID)
+{
+    try {
+        guidance_ensure_admins_table($conn);
+
+        $current = [];
+        $super   = [];
+        $res = $conn->query("SELECT `employeeID`, `is_super` FROM `guidance_admins`");
+        while ($r = $res->fetch_assoc()) {
+            $current[] = $r['employeeID'];
+            if ((int)$r['is_super'] === 1) $super[] = $r['employeeID'];
+        }
+
+        $wanted = array_values(array_unique(array_merge($employeeIDs, $super)));
+        $toAdd    = array_diff($wanted, $current);
+        $toRemove = array_diff($current, $wanted);
+
+        $conn->begin_transaction();
+        $add = $conn->prepare("INSERT INTO `guidance_admins` (`employeeID`, `added_by`) VALUES (?, ?)");
+        foreach ($toAdd as $id) {
+            $add->bind_param('ss', $id, $byEmployeeID);
+            $add->execute();
+        }
+        $add->close();
+        $del = $conn->prepare("DELETE FROM `guidance_admins` WHERE `employeeID` = ? AND `is_super` = 0");
+        foreach ($toRemove as $id) {
+            $del->bind_param('s', $id);
+            $del->execute();
+        }
+        $del->close();
         $conn->commit();
         return true;
     } catch (Throwable $e) {

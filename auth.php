@@ -11,9 +11,8 @@ require __DIR__ . '/PHPMailer/src/Exception.php';
 require __DIR__ . '/PHPMailer/src/PHPMailer.php';
 require __DIR__ . '/PHPMailer/src/SMTP.php';
 
-/* Admin positions allowed into the guidance hub. */
+/* Admin access is granted per account (guidance_admins table). */
 require_once __DIR__ . '/helperFiles/admin_roles.php';
-$accepted_admin_roles = guidance_admin_positions($conn);
 
 if (isset($_POST['action']) && $_POST['action'] === 'loginUser') {
     $input_identity = trim($_POST['email'] ?? '');
@@ -47,7 +46,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'loginUser') {
         exit();
     }
 
-    if (!in_array($user['position'], $accepted_admin_roles)) {
+    if (!guidance_is_admin($conn, $user['employeeID'])) {
         echo 'access_denied';
         exit();
     }
