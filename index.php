@@ -841,7 +841,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
                 back.hidden = !isLogin;
                 login.hidden = !isLogin;
                 card.classList.toggle('is-actions', !isLogin);
-                document.getElementById('card-title').textContent = isLogin ? 'Admin Access' : 'Welcome';
+                document.getElementById('card-title').textContent = isLogin ? 'Admin Ka ba?' : 'Welcome';
                 card.style.animation = 'none';
                 void card.offsetWidth;
                 card.style.animation = '';
