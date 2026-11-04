@@ -47,7 +47,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'loginUser') {
     }
 
     if (!guidance_is_admin($conn, $user['employeeID'])) {
-        echo 'access_denied';
+        /* A database problem is reported as such instead of a misleading "access denied". */
+        if (guidance_admin_last_error() !== '') {
+            echo 'Admin check failed: ' . guidance_admin_last_error();
+        } else {
+            echo 'access_denied';
+        }
         exit();
     }
 

@@ -20,6 +20,14 @@ if (!defined('GUIDANCE_LEGACY_ADMIN_POSITIONS')) {
     define('GUIDANCE_LEGACY_ADMIN_POSITIONS', ['Sci. Res. Assist.', 'Sci. Research Specialist I']);
 }
 
+/** Last database error from an admin check (empty string if none). */
+function guidance_admin_last_error($set = null)
+{
+    static $msg = '';
+    if ($set !== null) $msg = $set;
+    return $msg;
+}
+
 /** Create the table if needed, seed it on first use, and make sure a super admin exists. */
 function guidance_ensure_admins_table($conn)
 {
@@ -76,6 +84,8 @@ function guidance_is_admin($conn, $employeeID)
         $stmt->close();
         return $ok;
     } catch (Throwable $e) {
+        guidance_admin_last_error($e->getMessage());
+        error_log('guidance_is_admin failed: ' . $e->getMessage());
         return false;
     }
 }
@@ -92,6 +102,8 @@ function guidance_is_super_admin($conn, $employeeID)
         $stmt->close();
         return $ok;
     } catch (Throwable $e) {
+        guidance_admin_last_error($e->getMessage());
+        error_log('guidance_is_super_admin failed: ' . $e->getMessage());
         return false;
     }
 }
