@@ -177,6 +177,15 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
                 </div>
             </div>
 
+            <div class="hub-card">
+                <span class="card-ico"><i class="bi bi-people"></i></span>
+                <h3>Admin Management</h3>
+                <p>View, edit, and create guidance administrator accounts.</p>
+                <div class="card-links">
+                    <a href="admins.php"><i class="bi bi-person-gear"></i> Manage Admins</a>
+                </div>
+            </div>
+
             <div class="hub-card disabled">
                 <span class="card-ico"><i class="bi bi-journal-plus"></i></span>
                 <h3>More Modules</h3>

@@ -11,8 +11,9 @@ require __DIR__ . '/PHPMailer/src/Exception.php';
 require __DIR__ . '/PHPMailer/src/PHPMailer.php';
 require __DIR__ . '/PHPMailer/src/SMTP.php';
 
-/* Admin positions allowed into the guidance hub (same check scilab uses). */
-$accepted_admin_roles = ['Sci. Res. Assist.', 'Sci. Research Specialist I'];
+/* Admin positions allowed into the guidance hub. */
+require_once __DIR__ . '/helperFiles/admin_roles.php';
+$accepted_admin_roles = GUIDANCE_ADMIN_POSITIONS;
 
 if (isset($_POST['action']) && $_POST['action'] === 'loginUser') {
     $input_identity = trim($_POST['email'] ?? '');

@@ -11,14 +11,21 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/../PHPMailer/src/Exception.php';
 require_once __DIR__ . '/../PHPMailer/src/PHPMailer.php';
 require_once __DIR__ . '/../PHPMailer/src/SMTP.php';
+require_once __DIR__ . '/admin_roles.php';
 
 function scilab_resolve_lab_personnel_emails($conn) {
     $emails = [];
-    $res = $conn->query("SELECT email FROM accounts WHERE status = 'active' AND (position = 'Sci. Res. Assist.' OR position = 'Sci. Research Specialist I')");
-    if ($res) {
+    $positions = GUIDANCE_ADMIN_POSITIONS;
+    $placeholders = implode(',', array_fill(0, count($positions), '?'));
+    $stmt = $conn->prepare("SELECT email FROM accounts WHERE status = 'active' AND position IN ($placeholders)");
+    if ($stmt) {
+        $stmt->bind_param(str_repeat('s', count($positions)), ...$positions);
+        $stmt->execute();
+        $res = $stmt->get_result();
         while ($row = $res->fetch_assoc()) {
             if (!empty($row['email'])) $emails[] = $row['email'];
         }
+        $stmt->close();
     }
     return array_unique($emails);
 }
