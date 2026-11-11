@@ -441,6 +441,7 @@ if (isset($_GET['feed'])) {
                 <p>Review submitted referral forms and approve or reject pending submissions.</p>
             </div>
             <div class="dash-actions">
+                <a href="../admin/hub.php" class="btn-liquid"><i class="bi bi-arrow-left"></i> Back to Hub</a>
                 <a href="calendar.php" class="btn-liquid"><i class="bi bi-calendar3"></i> Calendar</a>
                 <a href="index.php" class="btn-liquid"><i class="bi bi-file-earmark-text"></i> New Referral Form</a>
                 <a href="../logout.php" class="btn-liquid-danger"><i class="bi bi-box-arrow-right"></i> Logout</a>

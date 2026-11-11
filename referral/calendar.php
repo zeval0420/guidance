@@ -277,7 +277,7 @@ if (isset($_GET['feed'])) {
                 <p>All submitted referrals and scheduled follow-ups in one place.</p>
             </div>
             <div class="cal-actions">
-                <a href="hub.php" class="btn-liquid"><i class="bi bi-grid"></i> Hub</a>
+                <a href="../admin/hub.php" class="btn-liquid"><i class="bi bi-arrow-left"></i> Back to Hub</a>
                 <a href="dashboard.php" class="btn-liquid"><i class="bi bi-table"></i> Dashboard</a>
             </div>
         </div>

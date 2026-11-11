@@ -15,11 +15,6 @@ if (!defined('GUIDANCE_SUPER_ADMIN_EMAIL')) {
     define('GUIDANCE_SUPER_ADMIN_EMAIL', 'pangdasl@irc.pshs.edu.ph');
 }
 
-/* Positions that were admins before this table existed; granted once on first setup so nobody is locked out. */
-if (!defined('GUIDANCE_LEGACY_ADMIN_POSITIONS')) {
-    define('GUIDANCE_LEGACY_ADMIN_POSITIONS', ['Sci. Res. Assist.', 'Sci. Research Specialist I']);
-}
-
 /** Last database error from an admin check (empty string if none). */
 function guidance_admin_last_error($set = null)
 {
@@ -43,17 +38,6 @@ function guidance_ensure_admins_table($conn)
             PRIMARY KEY (`employeeID`)
          ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci"
     );
-
-    /* First setup: carry over the previous position-based admins. */
-    $row = $conn->query("SELECT COUNT(*) AS c FROM `guidance_admins`")->fetch_assoc();
-    if ((int)$row['c'] === 0) {
-        $positions = GUIDANCE_LEGACY_ADMIN_POSITIONS;
-        $ph = implode(',', array_fill(0, count($positions), '?'));
-        $stmt = $conn->prepare("INSERT IGNORE INTO `guidance_admins` (`employeeID`) SELECT employeeID FROM accounts WHERE position IN ($ph)");
-        $stmt->bind_param(str_repeat('s', count($positions)), ...$positions);
-        $stmt->execute();
-        $stmt->close();
-    }
 
     /* Make sure a super admin exists (re-tried until the account is found). */
     $has = $conn->query("SELECT 1 FROM `guidance_admins` WHERE `is_super` = 1 LIMIT 1")->num_rows > 0;

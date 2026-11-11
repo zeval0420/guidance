@@ -576,6 +576,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_referral'])) {
     <?php include('../helperFiles/header.php'); ?>
 
     <div class="referral-app">
+        <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
+            <p><a href="../admin/hub.php" class="btn-liquid"><i class="bi bi-arrow-left"></i> Back to Hub</a></p>
+        <?php endif; ?>
         <section class="hero">
             <span class="eyebrow">Philippine Science High School System</span>
             <h1>Student Referral Form</h1>

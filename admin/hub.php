@@ -2,6 +2,7 @@
 $asset_base = '../';
 require('../helperFiles/db_connection.php');
 include('../helperFiles/session_handler.php');
+require_once('../helperFiles/admin_roles.php');
 
 /* Gate: admins only. */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
@@ -185,6 +186,17 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
                     <a href="admins.php"><i class="bi bi-person-gear"></i> Manage Admins</a>
                 </div>
             </div>
+
+            <?php if (guidance_is_super_admin($conn, $_SESSION['employeeID'] ?? '')): ?>
+            <div class="hub-card">
+                <span class="card-ico"><i class="bi bi-database-gear"></i></span>
+                <h3>Database Tools</h3>
+                <p>Run the SQL files in the Guidance folder (super admin only).</p>
+                <div class="card-links">
+                    <a href="sql_runner.php"><i class="bi bi-terminal"></i> SQL Runner</a>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <div class="hub-card disabled">
                 <span class="card-ico"><i class="bi bi-journal-plus"></i></span>
