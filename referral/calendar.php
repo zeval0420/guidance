@@ -1,6 +1,6 @@
 <?php
 $asset_base = '../';
-require('../helperFiles/db_connection.php');
+require(__DIR__ . '/../../credentials/db_connection.php');
 include('../helperFiles/session_handler.php');
 
 /* Gate: admins only. */

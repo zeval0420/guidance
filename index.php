@@ -1,5 +1,5 @@
 <?php
-require('helperFiles/db_connection.php');
+require(__DIR__ . '/../credentials/db_connection.php');
 include('helperFiles/session_handler.php');
 
 /* Already logged in as admin? Straight to the hub. */

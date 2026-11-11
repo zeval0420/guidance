@@ -1,5 +1,5 @@
 <?php
-require('helperFiles/db_connection.php');
+require(__DIR__ . '/../credentials/db_connection.php');
 
 $email = $_GET['email'] ?? '';
 $token = $_GET['token'] ?? '';

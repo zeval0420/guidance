@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Asia/Manila');
 $asset_base = '../';
-require('../helperFiles/db_connection.php');
+require(__DIR__ . '/../../credentials/db_connection.php');
 require_once('emailHelper.php');
 
 const DEFAULT_CAMPUS = 'Ilocos Region Campus';

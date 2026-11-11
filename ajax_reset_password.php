@@ -1,5 +1,5 @@
 <?php
-require('helperFiles/db_connection.php');
+require(__DIR__ . '/../credentials/db_connection.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
