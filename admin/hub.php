@@ -179,6 +179,16 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
             </div>
 
             <div class="hub-card">
+                <span class="card-ico"><i class="bi bi-qr-code-scan"></i></span>
+                <h3>Logbook</h3>
+                <p>Log student visits by QR scan, ID, or name. Time in is automatic; time out is one click.</p>
+                <div class="card-links">
+                    <a href="../logbook/index.php?unit=gcu"><i class="bi bi-chat-heart"></i> Guidance &amp; Counseling Unit</a>
+                    <a href="../logbook/index.php?unit=wellness"><i class="bi bi-heart-pulse"></i> Wellness Room</a>
+                </div>
+            </div>
+
+            <div class="hub-card">
                 <span class="card-ico"><i class="bi bi-people"></i></span>
                 <h3>Admin Management</h3>
                 <p>View, edit, and create guidance administrator accounts.</p>
